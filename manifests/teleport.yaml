@@ -50,8 +50,8 @@ spec:
           readOnly: true
       volumes:
       - name: teleport-config
-        secret:
-          secretName: teleport-generated-config
+        configMap:
+          name: teleport-config
 ---
 apiVersion: v1
 kind: Service
