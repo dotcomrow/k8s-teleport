@@ -158,13 +158,13 @@ data:
       log:
         output: stderr
         severity: INFO
-    auth_service:
-      enabled: yes
-      listen_addr: 0.0.0.0:3025
       storage:
         type: postgres
         uri: ${TELEPORT_DB_URL}
         # For full details, see: https://goteleport.com/docs/management/admin/postgres/
+    auth_service:
+      enabled: yes
+      listen_addr: 0.0.0.0:3025
     ssh_service:
       enabled: yes
       listen_addr: 0.0.0.0:3023
