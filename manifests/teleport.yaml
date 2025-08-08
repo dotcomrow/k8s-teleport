@@ -36,13 +36,15 @@ spec:
         - containerPort: 3023 # SSH Service
         - containerPort: 3080 # Web UI
         env:
-        - name: TELEPORT_CONFIG
-          value: /etc/teleport/teleport.yaml
         - name: TELEPORT_DB_URL
           valueFrom:
             secretKeyRef:
               name: teleport-db-secret
               key: connection-string
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            envsubst < /etc/teleport/teleport.yaml > /tmp/teleport.yaml && exec teleport start -c /tmp/teleport.yaml
         resources:
           requests:
             cpu: "100m"
