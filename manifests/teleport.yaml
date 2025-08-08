@@ -36,7 +36,7 @@ spec:
           - sh
           - -c
           - |
-            etcd_endpoints="etcd-0.etcd.teleport.svc.cluster.local"
+            etcd_endpoints="etcd-0.teleport.svc.cluster.local"
             for host in $etcd_endpoints; do
               echo "Waiting for $host:2379..."
               while ! nslookup "$host" >/dev/null 2>&1 && ! ping -c 1 "$host" >/dev/null 2>&1; do
