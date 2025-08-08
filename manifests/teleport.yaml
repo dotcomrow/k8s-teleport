@@ -148,11 +148,13 @@ data:
       storage:
         type: file
         path: /var/lib/teleport
-      enabled: yes
-      listen_addr: 0.0.0.0:3025
-    ssh_service:
-      enabled: yes
-      listen_addr: 0.0.0.0:3023
-    proxy_service:
-      enabled: yes
-      listen_addr: 0.0.0.0:3080
+      version: v3
+      teleport:
+        nodename: teleport
+        data_dir: /var/lib/teleport
+        log:
+          output: stderr
+          severity: INFO
+        storage:
+          type: file
+          path: /var/lib/teleport
