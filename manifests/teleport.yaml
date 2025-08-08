@@ -7,7 +7,7 @@ metadata:
   labels:
     app: teleport
   annotations:
-    linkerd.io/inject: enabled
+    linkerd.io/inject: disabled
     field.cattle.io/projectId: local:applications
     scheduler.alpha.kubernetes.io/node-selector: "dedicated=srvr-node"
 ---
