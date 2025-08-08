@@ -37,8 +37,8 @@ spec:
           - -c
           - |
             for host in etcd-0.etcd.teleport.svc.cluster.local etcd-1.etcd.teleport.svc.cluster.local etcd-2.etcd.teleport.svc.cluster.local; do
-              echo "Waiting for $host:32379..."
-              until nc -z $host 32379; do sleep 2; done
+              echo "Waiting for $host:2379..."
+              until nc -z $host 2379; do sleep 2; done
             done
             echo "All etcd endpoints are reachable."
       containers:
@@ -211,7 +211,7 @@ metadata:
   namespace: teleport
 spec:
   serviceName: etcd
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: etcd
