@@ -36,9 +36,22 @@ spec:
           - sh
           - -c
           - |
-            for host in etcd-0.etcd.teleport.svc.cluster.local etcd-1.etcd.teleport.svc.cluster.local etcd-2.etcd.teleport.svc.cluster.local; do
+            etcd_endpoints=(
+              etcd-0.etcd.teleport.svc.cluster.local
+              # etcd-1.etcd.teleport.svc.cluster.local
+              # etcd-2.etcd.teleport.svc.cluster.local
+            )
+
+            for host in "${etcd_endpoints[@]}"; do
               echo "Waiting for $host:2379..."
-              until nc -z $host 2379; do sleep 2; done
+              while ! getent hosts "$host" >/dev/null; do
+                echo "DNS for $host not ready, waiting..."
+                sleep 2
+              done
+              until nc -z "$host" 2379; do
+                echo "Port 2379 not open on $host, waiting..."
+                sleep 2
+              done
             done
             echo "All etcd endpoints are reachable."
       containers:
