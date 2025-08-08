@@ -155,6 +155,10 @@ data:
           - http://etcd-0.etcd.teleport.svc.cluster.local:2379
           - http://etcd-1.etcd.teleport.svc.cluster.local:2379
           - http://etcd-2.etcd.teleport.svc.cluster.local:2379
+        peers:
+          - http://etcd-0.etcd.teleport.svc.cluster.local:2379
+          - http://etcd-1.etcd.teleport.svc.cluster.local:2379
+          - http://etcd-2.etcd.teleport.svc.cluster.local:2379
         # Uncomment and configure the following for TLS
         # tls_key_file: /etc/teleport/etcd-client.key
         # tls_cert_file: /etc/teleport/etcd-client.crt
