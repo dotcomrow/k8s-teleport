@@ -1,4 +1,4 @@
-# Create the "ollama" namespace
+# Create the "teleport" namespace
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -175,7 +175,7 @@ data:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: copy-vault-root-token
+  name: copy-teleport-vault-root-token
   namespace: vault
 spec:
   backoffLimit: 1
