@@ -35,16 +35,7 @@ spec:
         - containerPort: 3025 # Auth Service
         - containerPort: 3023 # SSH Service
         - containerPort: 3080 # Web UI
-        env:
-        - name: TELEPORT_DB_URL
-          valueFrom:
-            secretKeyRef:
-              name: teleport-db-secret
-              key: connection-string
-        command: ["/bin/sh", "-c"]
-        args:
-          - |
-            envsubst < /etc/teleport/teleport.yaml > /tmp/teleport.yaml && exec teleport start -c /tmp/teleport.yaml
+        command: ["teleport", "start", "-c", "/etc/teleport/teleport.yaml"]
         resources:
           requests:
             cpu: "100m"
@@ -55,10 +46,11 @@ spec:
         volumeMounts:
         - name: teleport-config
           mountPath: /etc/teleport
+          readOnly: true
       volumes:
       - name: teleport-config
-        configMap:
-          name: teleport-config
+        secret:
+          secretName: teleport-generated-config
 ---
 apiVersion: v1
 kind: Service
@@ -604,17 +596,16 @@ spec:
                     fi
                   done
 
-                  echo "🔐 Creating/updating Kubernetes secret..."
-                  cat <<EOF | kubectl apply -f - 
-                  apiVersion: v1
-                  kind: Secret
-                  metadata:
-                    name: teleport-db-secret
-                    namespace: teleport
-                  type: Opaque
-                  stringData:
-                    connection-string: ${DB_URL}
-                  EOF
+                  echo "� Fetching teleport.yaml template from ConfigMap..."
+                  kubectl get configmap teleport-config -n teleport -o jsonpath='{.data.teleport\.yaml}' > /tmp/teleport.yaml.template
+
+                  echo "🔧 Rendering teleport.yaml with DB URL..."
+                  sed "s|\${TELEPORT_DB_URL}|${DB_URL}|g" /tmp/teleport.yaml.template > /tmp/teleport.yaml
+
+                  echo "🔐 Creating/updating Kubernetes Secret with rendered config..."
+                  kubectl create secret generic teleport-generated-config \
+                    --from-file=teleport.yaml=/tmp/teleport.yaml \
+                    -n teleport --dry-run=client -o yaml | kubectl apply -f -
 
               resources:
                 requests:
