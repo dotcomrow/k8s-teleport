@@ -36,7 +36,7 @@ spec:
           - sh
           - -c
           - |
-            etcd_endpoints="etcd-0.teleport.svc.cluster.local"
+            etcd_endpoints="etcd-0.etcd.teleport.svc.cluster.local"
             for host in $etcd_endpoints; do
               echo "Waiting for $host:2379..."
               while ! nslookup "$host" >/dev/null 2>&1 && ! ping -c 1 "$host" >/dev/null 2>&1; do
@@ -173,12 +173,8 @@ data:
         prefix: /teleport
         endpoints:
           - http://etcd-0.etcd.teleport.svc.cluster.local:2379
-          - http://etcd-1.etcd.teleport.svc.cluster.local:2379
-          - http://etcd-2.etcd.teleport.svc.cluster.local:2379
         peers:
           - http://etcd-0.etcd.teleport.svc.cluster.local:2379
-          - http://etcd-1.etcd.teleport.svc.cluster.local:2379
-          - http://etcd-2.etcd.teleport.svc.cluster.local:2379
         tls_ca_file: /etc/ssl/certs/ca-certificates.crt
         # Uncomment and configure the following for TLS
         # tls_key_file: /etc/teleport/etcd-client.key
