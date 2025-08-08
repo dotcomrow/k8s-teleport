@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
       - name: teleport
-        image: goteleport/teleport:latest
+        image: public.ecr.aws/gravitational/teleport-distroless:18.1.4
         ports:
         - containerPort: 3025 # Auth Service
         - containerPort: 3023 # SSH Service
