@@ -141,20 +141,13 @@ metadata:
   name: teleport-config
 data:
   teleport.yaml: |
-    version: v3
     teleport:
+      version: v3
       nodename: teleport
       data_dir: /var/lib/teleport
+      log:
+        output: stderr
+        severity: INFO
       storage:
         type: file
         path: /var/lib/teleport
-      version: v3
-      teleport:
-        nodename: teleport
-        data_dir: /var/lib/teleport
-        log:
-          output: stderr
-          severity: INFO
-        storage:
-          type: file
-          path: /var/lib/teleport
