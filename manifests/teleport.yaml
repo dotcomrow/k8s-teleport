@@ -150,7 +150,7 @@ data:
         severity: INFO
       storage:
         type: postgres
-        uri: ${TELEPORT_DB_URL}
+        conn_string: ${TELEPORT_DB_URL}
         # For full details, see: https://goteleport.com/docs/management/admin/postgres/
     auth_service:
       enabled: yes
