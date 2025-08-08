@@ -161,8 +161,8 @@ data:
     auth_service:
       enabled: yes
       listen_addr: 0.0.0.0:3025
-      storage_type: postgres
-      postgres:
+      storage:
+        type: postgres
         uri: ${TELEPORT_DB_URL}
         # For full details, see: https://goteleport.com/docs/management/admin/postgres/
     ssh_service:
