@@ -148,9 +148,9 @@ data:
       log:
         output: stderr
         severity: INFO
-            storage:
-              type: file
-              path: /var/lib/teleport
+      storage:
+        type: file
+        path: /var/lib/teleport
     auth_service:
       enabled: yes
       listen_addr: 0.0.0.0:3025
