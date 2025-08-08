@@ -161,7 +161,7 @@ data:
     auth_service:
       enabled: yes
       listen_addr: 0.0.0.0:3025
-      storage:
+      backend:
         type: postgres
         connection_string: ${TELEPORT_DB_URL}
         # For full details, see: https://goteleport.com/docs/management/admin/postgres/
