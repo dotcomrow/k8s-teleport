@@ -652,18 +652,18 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: teleport-secret-reader
+  name: teleport-secret-manager
   namespace: teleport
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: teleport-secret-reader-binding
+  name: teleport-secret-manager-binding
   namespace: teleport
 subjects:
   - kind: ServiceAccount
@@ -671,7 +671,7 @@ subjects:
     namespace: teleport
 roleRef:
   kind: Role
-  name: teleport-secret-reader
+  name: teleport-secret-manager
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: rbac.authorization.k8s.io/v1
