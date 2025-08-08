@@ -43,11 +43,6 @@ spec:
             secretKeyRef:
               name: teleport-db-secret
               key: connection-string
-        - name: TELEPORT_DB_URL
-          valueFrom:
-            secretKeyRef:
-              name: teleport-db-secret
-              key: connection-string
         resources:
           requests:
             cpu: "100m"
