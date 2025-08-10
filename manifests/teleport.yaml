@@ -11,6 +11,42 @@ metadata:
   annotations:
     linkerd.io/inject: disabled
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: etcd-tls-bootstrap
+  namespace: teleport
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: secret-writer
+  namespace: teleport
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get","create","update","patch","delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: secret-writer-binding
+  namespace: teleport
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+subjects:
+- kind: ServiceAccount
+  name: etcd-tls-bootstrap
+  namespace: teleport
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: secret-writer
+---
 # ============================
 # PreSync: generate etcd TLS (CA + server cert)
 #   - writes Secret: etcd-tls  (ca.crt, server.crt, server.key)
@@ -26,6 +62,7 @@ metadata:
 spec:
   template:
     spec:
+      serviceAccountName: etcd-tls-bootstrap
       restartPolicy: OnFailure
       volumes:
         - name: work
