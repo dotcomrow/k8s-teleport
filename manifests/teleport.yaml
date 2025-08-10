@@ -83,7 +83,10 @@ spec:
           command: ["/bin/sh","-c"]
           args:
             - |
-              # ----- Write CA and server extension configs -----
+              set -euo pipefail
+              apk add --no-cache openssl
+
+              # ----- CA extensions (real CA) -----
               cat >/work/ca.cnf <<'CNF'
               [v3_ca]
               basicConstraints = critical, CA:true
@@ -92,11 +95,12 @@ spec:
               authorityKeyIdentifier = keyid:always,issuer
               CNF
 
+              # ----- Server/Peer cert needs BOTH serverAuth + clientAuth -----
               cat >/work/server.cnf <<'CNF'
-              [v3_server]
+              [v3_server_peer]
               basicConstraints = CA:FALSE
               keyUsage = critical, digitalSignature, keyEncipherment
-              extendedKeyUsage = serverAuth
+              extendedKeyUsage = serverAuth, clientAuth
               subjectAltName = @alt_names
               [alt_names]
               DNS.1 = etcd-0.etcd.teleport.svc.cluster.local
@@ -106,26 +110,24 @@ spec:
               IP.1  = 127.0.0.1
               CNF
 
-              # ----- Generate CA (with proper CA extensions) -----
-              apk add --no-cache openssl
+              # Generate CA
               openssl genrsa -out /work/ca.key 4096
               openssl req -new -x509 -key /work/ca.key -sha256 -days 3650 \
                 -subj "/CN=etcd-ca" \
                 -extensions v3_ca -config /work/ca.cnf \
                 -out /work/ca.crt
 
-              # ----- Generate server key + CSR -----
+              # Generate server/peer key + CSR
               openssl genrsa -out /work/server.key 2048
               openssl req -new -key /work/server.key \
                 -subj "/CN=etcd-0.etcd.teleport.svc.cluster.local" \
                 -out /work/server.csr
 
-              # ----- Sign server cert with server extensions -----
+              # Sign with BOTH EKUs
               openssl x509 -req -in /work/server.csr -CA /work/ca.crt -CAkey /work/ca.key \
                 -CAcreateserial -out /work/server.crt -days 3650 -sha256 \
-                -extensions v3_server -extfile /work/server.cnf
+                -extensions v3_server_peer -extfile /work/server.cnf
 
-              # perms for the kubectl container to read
               chmod 0644 /work/ca.crt /work/server.crt
               chmod 0640 /work/server.key
               touch /work/ready
