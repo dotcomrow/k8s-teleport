@@ -36,10 +36,8 @@ spec:
           volumeMounts:
             - name: work
               mountPath: /work
-          resources:
+          command: ["/bin/sh","-c"]
           args:
-            - /bin/sh
-            - -c
             - |
               set -euo pipefail
               apk add --no-cache openssl
@@ -60,7 +58,8 @@ spec:
               [alt_names]
               DNS.1 = etcd-0.etcd.teleport.svc.cluster.local
               DNS.2 = etcd.teleport.svc
-              DNS.3 = localhost
+              DNS.3 = etcd.teleport.svc.cluster.local
+              DNS.4 = localhost
               IP.1  = 127.0.0.1
               CNF
               openssl genrsa -out /work/server.key 2048
@@ -70,38 +69,22 @@ spec:
               openssl x509 -req -in /work/server.csr -CA /work/ca.crt -CAkey /work/ca.key \
                 -CAcreateserial -out /work/server.crt -days 3650 -sha256 \
                 -extensions v3_req -extfile /work/req.cnf
-        - name: kubectl-1
-          image: bitnami/kubectl:1.29
-          securityContext:
-            runAsUser: 0            # run as root so it can read 0640 files
-          volumeMounts:
-            - name: work
-              mountPath: /work
-          resources:
-          args:
-            - /bin/sh
-            - -c
-            - |
-              set -euo pipefail
-              while [ ! -f /work/ready ]; do sleep 1; done
-              kubectl -n teleport create secret generic etcd-tls \
-                --from-file=ca.crt=/work/ca.crt \
-                --from-file=server.crt=/work/server.crt \
-                --from-file=server.key=/work/server.key \
-                --dry-run=client -o yaml | kubectl apply -f -
+              # Let the next container read the files
+              chmod 0644 /work/ca.crt /work/server.crt
+              chmod 0640 /work/server.key
+              # Signal readiness
               touch /work/ready
-        - name: kubectl-2
+        - name: kubectl
           image: bitnami/kubectl:1.29
           securityContext:
-            runAsUser: 0            # run as root so it can read 0640 files
+            runAsUser: 0
           volumeMounts:
             - name: work
               mountPath: /work
           command: ["/bin/sh","-c"]
-          args: 
-            - /bin/sh
-            - -c
+          args:
             - |
+              set -euo pipefail
               while [ ! -f /work/ready ]; do sleep 1; done
               kubectl -n teleport create secret generic etcd-tls \
                 --from-file=ca.crt=/work/ca.crt \
@@ -251,7 +234,6 @@ data:
     proxy_service:
       enabled: true
       web_listen_addr: 0.0.0.0:3080
-      # optional public name if you add OIDC later
       # public_addr: teleport.app.suncoast.systems:443
 
     ssh_service:
@@ -280,7 +262,7 @@ spec:
       initContainers:
         - name: wait-for-etcd
           image: busybox:1.36
-          command: ["sh","-c"]
+          command: ["/bin/sh","-c"]
           args: |
             set -e
             host="etcd-0.etcd.teleport.svc.cluster.local"
@@ -358,8 +340,6 @@ spec:
 ---
 # ============================
 # APISIX route → Teleport over HTTPS
-#   - proxy-rewrite sets scheme: https
-#   - client-control disables upstream cert verify (Teleport uses self-signed unless you add ACME)
 # ============================
 apiVersion: apisix.apache.org/v2
 kind: ApisixRoute
@@ -391,45 +371,3 @@ spec:
           enable: true
           config:
             ssl_verify: false
----
----
-# apiVersion: apisix.apache.org/v2
-# kind: ApisixRoute
-# metadata:
-#   name: teleport-ssh-route
-#   namespace: teleport
-#   annotations:
-#     apisix.apache.org/timeout: "900"
-# spec:
-#   ingressClassName: apisix
-#   http:
-#     - name: ssh
-#       match:
-#         hosts:
-#           - teleport-ssh.app.suncoast.systems
-#         paths:
-#           - /*
-#       backends:
-#         - serviceName: teleport
-#           servicePort: 3023
-
-# ---
-# apiVersion: apisix.apache.org/v2
-# kind: ApisixRoute
-# metadata:
-#   name: teleport-auth-route
-#   namespace: teleport
-#   annotations:
-#     apisix.apache.org/timeout: "900"
-# spec:
-#   ingressClassName: apisix
-#   http:
-#     - name: auth
-#       match:
-#         hosts:
-#           - teleport-auth.app.suncoast.systems
-#         paths:
-#           - /*
-#       backends:
-#         - serviceName: teleport
-#           servicePort: 3025
