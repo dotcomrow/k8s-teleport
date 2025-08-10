@@ -433,6 +433,16 @@ spec:
 # APISIX route → Teleport over HTTPS
 # ============================
 apiVersion: apisix.apache.org/v2
+kind: ApisixUpstream
+metadata:
+  name: teleport            # <-- must match Service name
+  namespace: teleport       # <-- and namespace
+spec:
+  scheme: https             # talk HTTPS to upstream
+  passHost: pass            # forward original Host header
+  # You can leave the rest empty; the controller will fill service endpoints
+---
+apiVersion: apisix.apache.org/v2
 kind: ApisixRoute
 metadata:
   name: teleport-route
@@ -453,8 +463,5 @@ spec:
       backends:
         - serviceName: teleport
           servicePort: 3080
-      plugins:
-        - name: proxy-rewrite
-          enable: true
-          config:
-            scheme: https
+      # no proxy-rewrite needed if the Upstream sets scheme: https
+
