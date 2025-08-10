@@ -36,18 +36,18 @@ spec:
           volumeMounts:
             - name: work
               mountPath: /work
-          command: ["/bin/sh","-c"]
+          resources:
           args:
+            - /bin/sh
+            - -c
             - |
               set -euo pipefail
               apk add --no-cache openssl
-
               # 1) CA
               openssl genrsa -out /work/ca.key 4096
               openssl req -x509 -new -nodes -key /work/ca.key -sha256 -days 3650 \
                 -subj "/CN=etcd-ca" -out /work/ca.crt
-
-              # 2) Server key/cert with SANs for etcd-0 service DNS
+              # 2) Server cert with SANs
               cat >/work/req.cnf <<'CNF'
               [req]
               distinguished_name=req
@@ -70,22 +70,37 @@ spec:
               openssl x509 -req -in /work/server.csr -CA /work/ca.crt -CAkey /work/ca.key \
                 -CAcreateserial -out /work/server.crt -days 3650 -sha256 \
                 -extensions v3_req -extfile /work/req.cnf
-
-              touch /work/ready
-          resources:
-            requests:
-              cpu: "50m"
-              memory: "64Mi"
-            limits:
-              cpu: "200m"
-              memory: "256Mi"
         - name: kubectl
           image: bitnami/kubectl:1.29
+          securityContext:
+            runAsUser: 0            # run as root so it can read 0640 files
+          volumeMounts:
+            - name: work
+              mountPath: /work
+          resources:
+          args:
+            - /bin/sh
+            - -c
+            - |
+              set -euo pipefail
+              while [ ! -f /work/ready ]; do sleep 1; done
+              kubectl -n teleport create secret generic etcd-tls \
+                --from-file=ca.crt=/work/ca.crt \
+                --from-file=server.crt=/work/server.crt \
+                --from-file=server.key=/work/server.key \
+                --dry-run=client -o yaml | kubectl apply -f -
+              touch /work/ready
+        - name: kubectl
+          image: bitnami/kubectl:1.29
+          securityContext:
+            runAsUser: 0            # run as root so it can read 0640 files
           volumeMounts:
             - name: work
               mountPath: /work
           command: ["/bin/sh","-c"]
-          args:
+          args: 
+            - /bin/sh
+            - -c
             - |
               while [ ! -f /work/ready ]; do sleep 1; done
               kubectl -n teleport create secret generic etcd-tls \
@@ -93,13 +108,6 @@ spec:
                 --from-file=server.crt=/work/server.crt \
                 --from-file=server.key=/work/server.key \
                 --dry-run=client -o yaml | kubectl apply -f -
-          resources:
-            requests:
-              cpu: "50m"
-              memory: "64Mi"
-            limits:
-              cpu: "200m"
-              memory: "256Mi"
 ---
 # ============================
 # etcd headless Service
