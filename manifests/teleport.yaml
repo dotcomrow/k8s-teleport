@@ -81,56 +81,72 @@ spec:
             - name: work
               mountPath: /work
           command: ["/bin/sh","-c"]
-          args:
-            - |
-              set -euo pipefail
-              apk add --no-cache openssl
+          args: 
+              - |
+                apk add --no-cache openssl
 
-              # ----- CA extensions (real CA) -----
-              cat >/work/ca.cnf <<'CNF'
-              [v3_ca]
-              basicConstraints = critical, CA:true
-              keyUsage = critical, keyCertSign, cRLSign
-              subjectKeyIdentifier = hash
-              authorityKeyIdentifier = keyid:always,issuer
-              CNF
+                # ----- CA extensions (real CA) -----
+                cat >/work/ca.cnf <<'CNF'
+                [v3_ca]
+                basicConstraints = critical, CA:true
+                keyUsage = critical, keyCertSign, cRLSign
+                subjectKeyIdentifier = hash
+                authorityKeyIdentifier = keyid:always,issuer
+                CNF
 
-              # ----- Server/Peer cert needs BOTH serverAuth + clientAuth -----
-              cat >/work/server.cnf <<'CNF'
-              [v3_server_peer]
-              basicConstraints = CA:FALSE
-              keyUsage = critical, digitalSignature, keyEncipherment
-              extendedKeyUsage = serverAuth, clientAuth
-              subjectAltName = @alt_names
-              [alt_names]
-              DNS.1 = etcd-0.etcd.teleport.svc.cluster.local
-              DNS.2 = etcd.teleport.svc
-              DNS.3 = etcd.teleport.svc.cluster.local
-              DNS.4 = localhost
-              IP.1  = 127.0.0.1
-              CNF
+                # ----- Server/Peer cert needs BOTH serverAuth + clientAuth -----
+                cat >/work/server.cnf <<'CNF'
+                [v3_server_peer]
+                basicConstraints = CA:FALSE
+                keyUsage = critical, digitalSignature, keyEncipherment
+                extendedKeyUsage = serverAuth, clientAuth
+                subjectAltName = @alt_names
+                [alt_names]
+                DNS.1 = etcd-0.etcd.teleport.svc.cluster.local
+                DNS.2 = etcd.teleport.svc
+                DNS.3 = etcd.teleport.svc.cluster.local
+                DNS.4 = localhost
+                IP.1  = 127.0.0.1
+                CNF
 
-              # Generate CA
-              openssl genrsa -out /work/ca.key 4096
-              openssl req -new -x509 -key /work/ca.key -sha256 -days 3650 \
-                -subj "/CN=etcd-ca" \
-                -extensions v3_ca -config /work/ca.cnf \
-                -out /work/ca.crt
+                # ----- Client cert (Teleport) needs clientAuth -----
+                cat >/work/client.cnf <<'CNF'
+                [v3_client]
+                basicConstraints = CA:FALSE
+                keyUsage = critical, digitalSignature, keyEncipherment
+                extendedKeyUsage = clientAuth
+                CNF
 
-              # Generate server/peer key + CSR
-              openssl genrsa -out /work/server.key 2048
-              openssl req -new -key /work/server.key \
-                -subj "/CN=etcd-0.etcd.teleport.svc.cluster.local" \
-                -out /work/server.csr
+                # Generate CA
+                openssl genrsa -out /work/ca.key 4096
+                openssl req -new -x509 -key /work/ca.key -sha256 -days 3650 \
+                  -subj "/CN=etcd-ca" \
+                  -extensions v3_ca -config /work/ca.cnf \
+                  -out /work/ca.crt
 
-              # Sign with BOTH EKUs
-              openssl x509 -req -in /work/server.csr -CA /work/ca.crt -CAkey /work/ca.key \
-                -CAcreateserial -out /work/server.crt -days 3650 -sha256 \
-                -extensions v3_server_peer -extfile /work/server.cnf
+                # Generate server/peer key + CSR
+                openssl genrsa -out /work/server.key 2048
+                openssl req -new -key /work/server.key \
+                  -subj "/CN=etcd-0.etcd.teleport.svc.cluster.local" \
+                  -out /work/server.csr
+                # Sign server with BOTH EKUs
+                openssl x509 -req -in /work/server.csr -CA /work/ca.crt -CAkey /work/ca.key \
+                  -CAcreateserial -out /work/server.crt -days 3650 -sha256 \
+                  -extensions v3_server_peer -extfile /work/server.cnf
 
-              chmod 0644 /work/ca.crt /work/server.crt
-              chmod 0640 /work/server.key
-              touch /work/ready
+                # Generate Teleport client key + CSR
+                openssl genrsa -out /work/client.key 2048
+                openssl req -new -key /work/client.key \
+                  -subj "/CN=teleport" \
+                  -out /work/client.csr
+                # Sign client with clientAuth EKU
+                openssl x509 -req -in /work/client.csr -CA /work/ca.crt -CAkey /work/ca.key \
+                  -CAcreateserial -out /work/client.crt -days 3650 -sha256 \
+                  -extensions v3_client -extfile /work/client.cnf
+
+                chmod 0644 /work/ca.crt /work/server.crt /work/client.crt
+                chmod 0640 /work/server.key /work/client.key
+                touch /work/ready
           resources:
             requests:
               cpu: "50m"
@@ -146,13 +162,15 @@ spec:
             - name: work
               mountPath: /work
           command: ["/bin/sh","-c"]
-          args:
-            - |
+          args: 
+              -|
               while [ ! -f /work/ready ]; do sleep 1; done
               kubectl -n teleport create secret generic etcd-tls \
                 --from-file=ca.crt=/work/ca.crt \
                 --from-file=server.crt=/work/server.crt \
                 --from-file=server.key=/work/server.key \
+                --from-file=client.crt=/work/client.crt \
+                --from-file=client.key=/work/client.key \
                 --dry-run=client -o yaml | kubectl apply -f -
           resources:
             requests:
@@ -232,6 +250,7 @@ spec:
             - --initial-cluster-token=etcd-cluster-1
             - --logger=zap
             - --log-level=info
+            - --client-cert-auth=false
           env:
             - name: POD_NAME
               valueFrom:
@@ -295,7 +314,9 @@ data:
         peers:
           - https://etcd-0.etcd.teleport.svc.cluster.local:2379
         prefix: /teleport/
-        tls_ca_file: /etc/etcd-ca/ca.crt
+        tls_ca_file:   /etc/etcd-ca/ca.crt
+        tls_cert_file: /etc/etcd-ca/client.crt
+        tls_key_file:  /etc/etcd-ca/client.key
 
     auth_service:
       enabled: true
