@@ -355,13 +355,13 @@ data:
       enabled: true
       apps:
         - name: k8s-mgmt-console
-          uri: https://k8s.suncoast.systems
+          uri: https://10.0.0.110
           public_addr: k8s.app.suncoast.systems
         - name: apisix-gateway-console
-          uri: https://gateway-manager.suncoast.systems
+          uri: http://10.0.0.111
           public_addr: gateway-manager.app.suncoast.systems
         - name: harbor-console
-          uri: https://harbor.suncoast.systems
+          uri: http://10.0.0.120
           public_addr: harbor.app.suncoast.systems
 
     auth_service:
