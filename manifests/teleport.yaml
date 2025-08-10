@@ -353,10 +353,16 @@ data:
 
     app_service:
       enabled: true
-      resources:
-        - labels:
-            "*": "*"   # or match specific labels like env: prod
-      # (optional) you can also define static apps here under `apps:`, but dynamic via bootstrap is cleaner
+      apps:
+        - name: k8s-mgmt-console
+          uri: https://k8s.suncoast.systems
+          public_addr: k8s.teleport.suncoast.systems
+        - name: apisix-gateway-console
+          uri: https://gateway-manager.suncoast.systems
+          public_addr: gateway-manager.teleport.suncoast.systems
+        - name: harbor-console
+          uri: https://harbor.suncoast.systems
+          public_addr: harbor.teleport.app.suncoast.systems
 
     auth_service:
       enabled: true
@@ -585,36 +591,3 @@ data:
         - organization: "<path:secret/data/k8s-teleport-teleport-github-org#value>"
           team: "<path:secret/data/k8s-teleport-teleport-github-user-team#value>"
           roles: ["access"]
-
-    ---
-    kind: app
-    version: v3
-    metadata:
-      name: k8s-mgmt-console
-      labels:
-        env: prod
-    spec:
-      uri: https://k8s.suncoast.systems
-      public_addr: k8s.teleport.suncoast.systems
-
-    ---
-    kind: app
-    version: v3
-    metadata:
-      name: apisix-gateway-console
-      labels:
-        env: prod
-    spec:
-      uri: https://gateway-manager.suncoast.systems
-      public_addr: gateway-manager.teleport.suncoast.systems
-
-    ---
-    kind: app
-    version: v3
-    metadata:
-      name: harbor-console
-      labels:
-        env: prod
-    spec:
-      uri: https://harbor.suncoast.systems
-      public_addr: harbor.teleport.app.suncoast.systems
