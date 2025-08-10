@@ -332,8 +332,9 @@ spec:
       initContainers:
         - name: wait-for-etcd
           image: busybox:1.36
-          command: ["/bin/sh","-c"]
-          args:
+          command:
+            - /bin/sh
+            - -c
             - |
               host="etcd-0.etcd.teleport.svc.cluster.local"
               echo "Waiting for DNS: $host"
