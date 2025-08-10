@@ -82,7 +82,7 @@ spec:
               mountPath: /work
           command: ["/bin/sh","-c"]
           args: 
-              - |
+            - |
                 apk add --no-cache openssl
 
                 # ----- CA extensions (real CA) -----
