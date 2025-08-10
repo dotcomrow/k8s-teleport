@@ -546,22 +546,9 @@ data:
     spec:
       type: github
       connector_name: new_github_connector
-      # optional:
-      second_factor: otp      # or "webauthn", "off", etc.
+      second_factor: otp
 
     ---
-    kind: role
-    version: v7
-    metadata:
-      name: admin
-    spec:
-      allow:
-        kubernetes_labels:
-          "*": "*"                 # see/select all kube clusters discovered by kube_service
-        kubernetes_groups: ["system:masters"]  # maps to a k8s RBAC group in your cluster
-
-    ---
-    # ---- 1) Teleport role: admin (very broad) ----
     kind: role
     version: v7
     metadata:
@@ -570,21 +557,18 @@ data:
       options:
         max_session_ttl: 8h0m0s
       allow:
-        # These label matchers grant access to all registered resources.
-        node_labels: {"*": "*"}
-        app_labels: {"*": "*"}
-        db_labels: {"*": "*"}
-        kubernetes_labels: {"*": "*"}
-        windows_desktop_labels: {"*": "*"}
-        # If you also run node service and want SSH logins:
-        logins: ["root", "ubuntu"]
-        # Full RBAC over Teleport resources:
+        node_labels: {"*":"*"}
+        app_labels: {"*":"*"}
+        db_labels: {"*":"*"}
+        kubernetes_labels: {"*":"*"}
+        windows_desktop_labels: {"*":"*"}
+        logins: ["root","ubuntu"]
         rules:
           - resources: ["*"]
             verbs: ["*"]
+        kubernetes_groups: ["system:masters"]
 
     ---
-    # ---- 2) GitHub connector mapping that includes the admin role ----
     kind: github
     version: v3
     metadata:
@@ -597,20 +581,16 @@ data:
       teams_to_roles:
         - organization: "<path:secret/data/k8s-teleport-teleport-github-org#value>"
           team: "<path:secret/data/k8s-teleport-teleport-github-admin-team#value>"
-          roles:
-            - "access"   # optional but common to include
-            - "admin"    # <-- your new role
-
+          roles: ["access","admin"]
         - organization: "<path:secret/data/k8s-teleport-teleport-github-org#value>"
           team: "<path:secret/data/k8s-teleport-teleport-github-user-team#value>"
-          roles:
-            - "access"
+          roles: ["access"]
 
     ---
     kind: app
     version: v3
     metadata:
-      name: K8S Management Console
+      name: k8s-mgmt-console
       labels:
         env: prod
     spec:
@@ -621,7 +601,7 @@ data:
     kind: app
     version: v3
     metadata:
-      name: APISIX Gateway Management Console
+      name: apisix-gateway-console
       labels:
         env: prod
     spec:
@@ -632,7 +612,7 @@ data:
     kind: app
     version: v3
     metadata:
-      name: Harbor Console
+      name: harbor-console
       labels:
         env: prod
     spec:
