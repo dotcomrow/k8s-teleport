@@ -57,6 +57,7 @@ metadata:
   name: etcd-tls-bootstrap
   namespace: teleport
   annotations:
+    argocd.argoproj.io/sync-wave: "-1"
     argocd.argoproj.io/hook: PreSync
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
