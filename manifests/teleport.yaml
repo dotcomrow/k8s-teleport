@@ -72,6 +72,13 @@ spec:
                 -extensions v3_req -extfile /work/req.cnf
 
               touch /work/ready
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
         - name: kubectl
           image: bitnami/kubectl:1.29
           volumeMounts:
@@ -80,13 +87,19 @@ spec:
           command: ["/bin/sh","-c"]
           args:
             - |
-              set -euo pipefail
               while [ ! -f /work/ready ]; do sleep 1; done
               kubectl -n teleport create secret generic etcd-tls \
                 --from-file=ca.crt=/work/ca.crt \
                 --from-file=server.crt=/work/server.crt \
                 --from-file=server.key=/work/server.key \
                 --dry-run=client -o yaml | kubectl apply -f -
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
 ---
 # ============================
 # etcd headless Service
