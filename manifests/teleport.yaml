@@ -485,6 +485,30 @@ metadata:
   namespace: teleport
 data:
   github.yaml: |
+    # ---- 1) Teleport role: admin (very broad) ----
+    kind: role
+    version: v7
+    metadata:
+      name: admin
+    spec:
+      options:
+        max_session_ttl: 8h0m0s
+      allow:
+        # These label matchers grant access to all registered resources.
+        node_labels: {"*": "*"}
+        app_labels: {"*": "*"}
+        db_labels: {"*": "*"}
+        kubernetes_labels: {"*": "*"}
+        windows_desktop_labels: {"*": "*"}
+        # If you also run node service and want SSH logins:
+        logins: ["root", "ubuntu"]
+        # Full RBAC over Teleport resources:
+        rules:
+          - resources: ["*"]
+            verbs: ["*"]
+
+    ---
+    # ---- 2) GitHub connector mapping that includes the admin role ----
     kind: github
     version: v3
     metadata:
@@ -496,5 +520,7 @@ data:
       display: "GitHub"
       teams_to_roles:
         - organization: "<path:secret/data/k8s-teleport-teleport-github-org#value>"
-          team: "<path:secret/data/k8s-teleport-teleport-github-team#value>"
-          roles: ["access"]
+          team: "<path:secret/data/k8s-teleport-teleport-github-admin-team#value>"
+          roles:
+            - "access"   # optional but common to include
+            - "admin"    # <-- your new role
