@@ -333,14 +333,14 @@ spec:
         - name: wait-for-etcd
           image: busybox:1.36
           command: ["/bin/sh","-c"]
-          args: |
-            set -e
-            host="etcd-0.etcd.teleport.svc.cluster.local"
-            echo "Waiting for DNS: $host"
-            until nslookup "$host" >/dev/null 2>&1; do sleep 2; done
-            echo "Waiting for TCP 2379 on $host"
-            until nc -z "$host" 2379 >/dev/null 2>&1; do sleep 2; done
-            echo "etcd is up"
+          args:
+            - |
+              host="etcd-0.etcd.teleport.svc.cluster.local"
+              echo "Waiting for DNS: $host"
+              until nslookup "$host" >/dev/null 2>&1; do sleep 2; done
+              echo "Waiting for TCP 2379 on $host"
+              until nc -z "$host" 2379 >/dev/null 2>&1; do sleep 2; done
+              echo "etcd is up"
       volumes:
         - name: teleport-config
           configMap:
