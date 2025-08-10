@@ -295,7 +295,7 @@ data:
         peers:
           - https://etcd-0.etcd.teleport.svc.cluster.local:2379
         prefix: /teleport/
-        tls_ca_file: /etc/teleport/etcd/ca.crt
+        tls_ca_file: /etc/etcd-ca/ca.crt
 
     auth_service:
       enabled: true
@@ -375,8 +375,7 @@ spec:
             - name: teleport-data
               mountPath: /var/lib/teleport
             - name: etcd-ca
-              mountPath: /etc/teleport/etcd/ca.crt
-              subPath: ca.crt
+              mountPath: /etc/etcd-ca
               readOnly: true
           readinessProbe:
             tcpSocket:
