@@ -356,13 +356,13 @@ data:
       apps:
         - name: k8s-mgmt-console
           uri: https://k8s.suncoast.systems
-          public_addr: k8s.suncoast.systems
+          public_addr: k8s.app.suncoast.systems
         - name: apisix-gateway-console
           uri: https://gateway-manager.suncoast.systems
-          public_addr: gateway-manager.suncoast.systems
+          public_addr: gateway-manager.app.suncoast.systems
         - name: harbor-console
           uri: https://harbor.suncoast.systems
-          public_addr: harbor.suncoast.systems
+          public_addr: harbor.app.suncoast.systems
 
     auth_service:
       enabled: true
@@ -525,10 +525,10 @@ spec:
       websocket: true
       match:
         hosts:
-          - teleport.suncoast.systems
-          - k8s.suncoast.systems
-          - gateway-manager.suncoast.systems
-          - harbor.suncoast.systems
+          - teleport.app.suncoast.systems
+          - k8s.app.suncoast.systems
+          - gateway-manager.app.suncoast.systems
+          - harbor.app.suncoast.systems
         paths: ["/*"]
       backends:
         - serviceName: teleport
