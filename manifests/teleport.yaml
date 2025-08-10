@@ -356,13 +356,13 @@ data:
       apps:
         - name: k8s-mgmt-console
           uri: https://k8s.suncoast.systems
-          public_addr: teleport.app.k8s.suncoast.systems
+          public_addr: k8s.suncoast.systems
         - name: apisix-gateway-console
           uri: https://gateway-manager.suncoast.systems
-          public_addr: teleport.app.gateway-managersuncoast.systems
+          public_addr: gateway-manager.suncoast.systems
         - name: harbor-console
           uri: https://harbor.suncoast.systems
-          public_addr: teleport.app.harbor.suncoast.systems
+          public_addr: harbor.suncoast.systems
 
     auth_service:
       enabled: true
@@ -518,23 +518,26 @@ kind: ApisixRoute
 metadata:
   name: teleport-route
   namespace: teleport
-  annotations:
-    apisix.apache.org/timeout: "900"
-    apisix.apache.org/websocket: "true"
 spec:
   ingressClassName: apisix
   http:
-    - name: webui
+    - name: teleport
       websocket: true
       match:
         hosts:
-          - teleport.app.suncoast.systems
-        paths:
-          - /*
+          - teleport.suncoast.systems
+          - k8s.suncoast.systems
+          - gateway-manager.suncoast.systems
+          - harbor.suncoast.systems
+        paths: ["/*"]
       backends:
         - serviceName: teleport
           servicePort: 3080
-      # no proxy-rewrite needed if the Upstream sets scheme: https
+      plugins:
+        - name: client-control
+          enable: true
+          config:
+            ssl_verify: false
 ---
 apiVersion: v1
 kind: ConfigMap
