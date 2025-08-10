@@ -83,19 +83,18 @@ spec:
           command: ["/bin/sh","-c"]
           args:
             - |
-              set -euo pipefail
-              apk add --no-cache openssl
-              # 1) CA
-              openssl genrsa -out /work/ca.key 4096
-              openssl req -x509 -new -nodes -key /work/ca.key -sha256 -days 3650 \
-                -subj "/CN=etcd-ca" -out /work/ca.crt
-              # 2) Server cert with SANs
-              cat >/work/req.cnf <<'CNF'
-              [req]
-              distinguished_name=req
-              req_extensions=v3_req
-              prompt=no
-              [v3_req]
+              # ----- Write CA and server extension configs -----
+              cat >/work/ca.cnf <<'CNF'
+              [v3_ca]
+              basicConstraints = critical, CA:true
+              keyUsage = critical, keyCertSign, cRLSign
+              subjectKeyIdentifier = hash
+              authorityKeyIdentifier = keyid:always,issuer
+              CNF
+
+              cat >/work/server.cnf <<'CNF'
+              [v3_server]
+              basicConstraints = CA:FALSE
               keyUsage = critical, digitalSignature, keyEncipherment
               extendedKeyUsage = serverAuth
               subjectAltName = @alt_names
@@ -106,17 +105,29 @@ spec:
               DNS.4 = localhost
               IP.1  = 127.0.0.1
               CNF
+
+              # ----- Generate CA (with proper CA extensions) -----
+              apk add --no-cache openssl
+              openssl genrsa -out /work/ca.key 4096
+              openssl req -new -x509 -key /work/ca.key -sha256 -days 3650 \
+                -subj "/CN=etcd-ca" \
+                -extensions v3_ca -config /work/ca.cnf \
+                -out /work/ca.crt
+
+              # ----- Generate server key + CSR -----
               openssl genrsa -out /work/server.key 2048
               openssl req -new -key /work/server.key \
                 -subj "/CN=etcd-0.etcd.teleport.svc.cluster.local" \
-                -out /work/server.csr -config /work/req.cnf
+                -out /work/server.csr
+
+              # ----- Sign server cert with server extensions -----
               openssl x509 -req -in /work/server.csr -CA /work/ca.crt -CAkey /work/ca.key \
                 -CAcreateserial -out /work/server.crt -days 3650 -sha256 \
-                -extensions v3_req -extfile /work/req.cnf
-              # Let the next container read the files
+                -extensions v3_server -extfile /work/server.cnf
+
+              # perms for the kubectl container to read
               chmod 0644 /work/ca.crt /work/server.crt
               chmod 0640 /work/server.key
-              # Signal readiness
               touch /work/ready
           resources:
             requests:
