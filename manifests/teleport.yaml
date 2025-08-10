@@ -17,6 +17,8 @@ metadata:
   name: etcd-tls-bootstrap
   namespace: teleport
   annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     argocd.argoproj.io/sync-wave: "-2"
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -25,6 +27,8 @@ metadata:
   name: secret-writer
   namespace: teleport
   annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     argocd.argoproj.io/sync-wave: "-2"
 rules:
 - apiGroups: [""]
@@ -37,6 +41,8 @@ metadata:
   name: secret-writer-binding
   namespace: teleport
   annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     argocd.argoproj.io/sync-wave: "-2"
 subjects:
 - kind: ServiceAccount
