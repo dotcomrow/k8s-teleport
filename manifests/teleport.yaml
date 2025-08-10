@@ -491,7 +491,7 @@ data:
       name: new_github_connector
     spec:
       client_id: "<path:secret/data/k8s-teleport-teleport-client-id#value>"
-      client_secret: "<path:secret/data/k8s-teleport-teleport-client-secret#value>"
+      client_secret: "<path:secret/data/k8s-teleport-teleport-secret#value>"
       redirect_url: "https://teleport.app.suncoast.systems/v1/webapi/github/callback"
       display: "GitHub"
       teams_to_roles:
