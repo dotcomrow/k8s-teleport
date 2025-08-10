@@ -163,7 +163,7 @@ spec:
               mountPath: /work
           command: ["/bin/sh","-c"]
           args: 
-              -|
+            - |
               while [ ! -f /work/ready ]; do sleep 1; done
               kubectl -n teleport create secret generic etcd-tls \
                 --from-file=ca.crt=/work/ca.crt \
