@@ -380,12 +380,10 @@ data:
 
     kubernetes_service:
       enabled: true
-      # Teleport will use the in-cluster config automatically (no kubeconfig_file needed)
       kube_cluster_name: local
+      listen_addr: 127.0.0.1:3026   # <— key fix
       labels:
         env: prod
-      # (optional) listen address; defaults are fine for most setups
-      # listen_addr: 0.0.0.0:3026
 
     ssh_service:
       enabled: false
