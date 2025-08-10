@@ -10,6 +10,8 @@ metadata:
     app: teleport
   annotations:
     linkerd.io/inject: disabled
+    field.cattle.io/projectId: local:infrastructure
+    scheduler.alpha.kubernetes.io/node-selector: "dedicated=srvr-node"
 ---
 apiVersion: v1
 kind: ServiceAccount
