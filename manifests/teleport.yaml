@@ -55,6 +55,37 @@ roleRef:
   kind: Role
   name: secret-writer
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: teleport-sa
+  namespace: teleport
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: teleport-kube-impersonator
+rules:
+- apiGroups: [""]
+  resources: ["users","groups","serviceaccounts"]
+  verbs: ["impersonate"]
+- apiGroups: ["authentication.k8s.io"]
+  resources: ["userextras/*"]
+  verbs: ["impersonate"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: teleport-kube-impersonator-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: teleport-kube-impersonator
+subjects:
+- kind: ServiceAccount
+  name: teleport-sa
+  namespace: teleport
+---
 # ============================
 # PreSync: generate etcd TLS (CA + server cert)
 #   - writes Secret: etcd-tls  (ca.crt, server.crt, server.key)
@@ -320,14 +351,35 @@ data:
         tls_cert_file: /etc/etcd-ca/client.crt
         tls_key_file:  /etc/etcd-ca/client.key
 
+    app_service:
+      enabled: true
+      resources:
+        - labels:
+            "*": "*"   # or match specific labels like env: prod
+      # (optional) you can also define static apps here under `apps:`, but dynamic via bootstrap is cleaner
+
     auth_service:
       enabled: true
       listen_addr: 0.0.0.0:3025
+      authentication:
+        type: github
+        connector_name: new_github_connector
+        local_auth: false       # <-- disables local username/password flow
+        second_factor: otp
 
     proxy_service:
       enabled: true
       web_listen_addr: 0.0.0.0:3080
       # public_addr: teleport.app.suncoast.systems:443
+
+    kubernetes_service:
+      enabled: true
+      # Teleport will use the in-cluster config automatically (no kubeconfig_file needed)
+      kube_cluster_name: local
+      labels:
+        env: prod
+      # (optional) listen address; defaults are fine for most setups
+      # listen_addr: 0.0.0.0:3026
 
     ssh_service:
       enabled: false
@@ -352,6 +404,7 @@ spec:
       labels:
         app: teleport
     spec:
+      serviceAccountName: teleport-sa
       initContainers:
         - name: wait-for-etcd
           image: busybox:1.36
@@ -485,6 +538,29 @@ metadata:
   namespace: teleport
 data:
   github.yaml: |
+    ---
+    kind: cluster_auth_preference
+    version: v2
+    metadata:
+      name: cluster-auth-preference
+    spec:
+      type: github
+      connector_name: new_github_connector
+      # optional:
+      second_factor: otp      # or "webauthn", "off", etc.
+
+    ---
+    kind: role
+    version: v7
+    metadata:
+      name: admin
+    spec:
+      allow:
+        kubernetes_labels:
+          "*": "*"                 # see/select all kube clusters discovered by kube_service
+        kubernetes_groups: ["system:masters"]  # maps to a k8s RBAC group in your cluster
+
+    ---
     # ---- 1) Teleport role: admin (very broad) ----
     kind: role
     version: v7
@@ -529,3 +605,36 @@ data:
           team: "<path:secret/data/k8s-teleport-teleport-github-user-team#value>"
           roles:
             - "access"
+
+    ---
+    kind: app
+    version: v3
+    metadata:
+      name: K8S Management Console
+      labels:
+        env: prod
+    spec:
+      uri: https://k8s.suncoast.systems
+      public_addr: k8s.teleport.suncoast.systems
+
+    ---
+    kind: app
+    version: v3
+    metadata:
+      name: APISIX Gateway Management Console
+      labels:
+        env: prod
+    spec:
+      uri: https://gateway-manager.suncoast.systems
+      public_addr: gateway-manager.teleport.suncoast.systems
+
+    ---
+    kind: app
+    version: v3
+    metadata:
+      name: Harbor Console
+      labels:
+        env: prod
+    spec:
+      uri: https://harbor.suncoast.systems
+      public_addr: harbor.teleport.app.suncoast.systems
