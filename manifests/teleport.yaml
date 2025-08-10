@@ -524,3 +524,8 @@ data:
           roles:
             - "access"   # optional but common to include
             - "admin"    # <-- your new role
+
+        - organization: "<path:secret/data/k8s-teleport-teleport-github-org#value>"
+          team: "<path:secret/data/k8s-teleport-teleport-github-user-team#value>"
+          roles:
+            - "access"
