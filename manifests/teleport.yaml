@@ -338,7 +338,6 @@ data:
   teleport.yaml: |
     version: v3
     teleport:
-      proxy_server: 127.0.0.1:3080
       data_dir: /var/lib/teleport
       log:
         output: stderr
@@ -377,14 +376,15 @@ data:
     proxy_service:
       enabled: true
       web_listen_addr: 0.0.0.0:3080
-      public_addr: teleport.app.suncoast.systems:443
+      # run the reverse tunnel listener locally so internal components don’t complain
+      tunnel_listen_addr: 127.0.0.1:3024
+      public_addr: teleport.app.suncoast.systems:443   # for UI links
 
     kubernetes_service:
       enabled: true
+      # make it explicitly reachable from the local proxy in this same process
+      listen_addr: 127.0.0.1:3026
       kube_cluster_name: local
-      listen_addr: 127.0.0.1:3026   # <— key fix
-      labels:
-        env: prod
 
     ssh_service:
       enabled: false
