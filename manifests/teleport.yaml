@@ -526,6 +526,10 @@ kind: ApisixRoute
 metadata:
   name: teleport-route
   namespace: teleport
+  annotations:
+    apisix.apache.org/timeout: "900"
+    apisix.apache.org/websocket: "true"
+    apisix.apache.org/enable-cors: "true"
 spec:
   ingressClassName: apisix
   http:
