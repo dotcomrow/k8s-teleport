@@ -366,11 +366,10 @@ data:
         - name: harbor-console
           uri: https://10.0.0.10
           public_addr: harbor.app.suncoast.systems
-          insecure_skip_verify: true           # upstream cert doesn’t match IP
+          insecure_skip_verify: true
           rewrite:
             headers:
               - "Host: harbor.app.suncoast.systems"
-              - "X-Forwarded-Host: harbor.app.suncoast.systems"
 
     auth_service:
       enabled: true
