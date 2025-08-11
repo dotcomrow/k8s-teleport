@@ -355,7 +355,7 @@ data:
       enabled: true
       apps:
         - name: k8s-mgmt-console
-          uri: https://rancher.cattle-system.svc.internal.lan
+          uri: https://rancher.cattle-system.svc.cluster.local
           public_addr: k8s.app.suncoast.systems
           insecure_skip_verify: true
 
