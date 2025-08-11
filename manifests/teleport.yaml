@@ -355,12 +355,12 @@ data:
       enabled: true
       apps:
         - name: k8s-mgmt-console
-          uri: https://10.0.0.110
+          uri: https://rancher.cattle-system.svc.internal.lan
           public_addr: k8s.app.suncoast.systems
           insecure_skip_verify: true
-          
+
         - name: apisix-gateway-console
-          uri: http://10.0.0.111
+          uri: http://oauth2-proxy.apisix.svc.internal.lan
           public_addr: gateway-manager.app.suncoast.systems
 
         - name: harbor-console
