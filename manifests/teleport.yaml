@@ -357,9 +357,12 @@ data:
         - name: k8s-mgmt-console
           uri: https://10.0.0.110
           public_addr: k8s.app.suncoast.systems
+          insecure_skip_verify: true
+          
         - name: apisix-gateway-console
           uri: http://10.0.0.111
           public_addr: gateway-manager.app.suncoast.systems
+
         - name: harbor-console
           uri: http://10.0.0.120
           public_addr: harbor.app.suncoast.systems
