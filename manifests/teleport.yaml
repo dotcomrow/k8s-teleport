@@ -369,8 +369,8 @@ data:
           insecure_skip_verify: true           # upstream cert doesn’t match IP
           rewrite:
             headers:
-              Host: ["harbor.app.suncoast.systems"]   # what the upstream expects
-              X-Forwarded-Host: ["harbor.app.suncoast.systems"]  # optional, if app uses it
+              - "Host: harbor.app.suncoast.systems"
+              - "X-Forwarded-Host: harbor.app.suncoast.systems"
 
     auth_service:
       enabled: true
