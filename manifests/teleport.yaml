@@ -360,7 +360,7 @@ data:
           insecure_skip_verify: true
           rewrite:
             headers:
-              - "Host: k8s.suncoast.systems"
+              - "Host: k8s.app.suncoast.systems"
               - "Origin: https://k8s.app.suncoast.systems"
 
         - name: apisix-gateway-console
