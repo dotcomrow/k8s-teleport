@@ -385,11 +385,11 @@ data:
 
         - name: vault
           uri: http://vault.vault.svc.cluster.local:8200
-          public_addr: vault.teleport.suncoast.systems
+          public_addr: vault-teleport.app.suncoast.systems
 
         - name: vault-dex
           uri: http://dex.vault.svc.cluster.local:5556
-          public_addr: vault-dex.teleport.suncoast.systems
+          public_addr: vault-dex-teleport.app.suncoast.systems
 
     auth_service:
       enabled: true
