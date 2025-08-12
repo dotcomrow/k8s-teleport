@@ -357,6 +357,8 @@ data:
         - name: k8s-mgmt-console
           uri: https://rancher.cattle-system.svc.cluster.local
           public_addr: k8s.app.suncoast.systems
+          labels:
+            hidden: "false"
           insecure_skip_verify: true
           rewrite:
             headers:
@@ -366,10 +368,14 @@ data:
         - name: apisix-gateway-console
           uri: http://oauth2-proxy.apisix.svc.internal.lan
           public_addr: gateway-manager.app.suncoast.systems
+          labels:
+            hidden: "false"
 
         - name: harbor-console
           uri: https://10.0.0.10
           public_addr: harbor.app.suncoast.systems
+          labels:
+            hidden: "false"
           insecure_skip_verify: true
           rewrite:
             headers:
