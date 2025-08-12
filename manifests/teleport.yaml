@@ -593,7 +593,6 @@ data:
         max_session_ttl: 8h0m0s
       allow:
         node_labels: {"*":"*"}
-        app_labels: {"*":"*"}
         db_labels: {"*":"*"}
         kubernetes_labels: {"*":"*"}
         windows_desktop_labels: {"*":"*"}
@@ -613,6 +612,7 @@ data:
       allow:
         app_labels:
           'hidden': 'false'
+
     ---
     kind: github
     version: v3
