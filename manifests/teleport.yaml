@@ -569,6 +569,8 @@ spec:
           - gateway-manager.app.suncoast.systems
           - harbor.app.suncoast.systems
           - harbor-dex.app.suncoast.systems
+          - vault.app.suncoast.systems
+          - vault-dex.app.suncoast.systems
         paths: ["/*"]
       backends:
         - serviceName: teleport
