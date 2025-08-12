@@ -384,11 +384,11 @@ data:
               - "Host: harbor-dex.app.suncoast.systems"
 
         - name: vault
-          uri: http://vault.vault.svc.cluster.local:8200
+          uri: http://vault.vault.svc.cluster.local
           public_addr: vault-teleport.app.suncoast.systems
 
         - name: vault-dex
-          uri: http://dex.vault.svc.cluster.local:5556
+          uri: http://dex.vault.svc.cluster.local
           public_addr: vault-dex-teleport.app.suncoast.systems
 
     auth_service:
