@@ -612,8 +612,7 @@ data:
     spec:
       allow:
         app_labels:
-          'hidden': 'false'   # or omit 'hidden' label entirely to match all except hidden:true
-          '*': '*'
+          'hidden': 'false'
     ---
     kind: github
     version: v3
