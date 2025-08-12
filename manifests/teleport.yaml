@@ -385,7 +385,7 @@ data:
 
         - name: vault
           uri: http://vault.vault.svc.internal.lan
-          public_addr: vault.app.suncoast.systems
+          public_addr: vault.teleport.suncoast.systems
           insecure_skip_verify: true
           rewrite:
             headers:
@@ -393,7 +393,7 @@ data:
 
         - name: vault-dex
           uri: http://dev.vault.svc.internal.lan/dex
-          public_addr: vault-dex.app.suncoast.systems
+          public_addr: vault-dex.teleport.suncoast.systems
           insecure_skip_verify: true
           rewrite:
             headers:
@@ -569,8 +569,8 @@ spec:
           - gateway-manager.app.suncoast.systems
           - harbor.app.suncoast.systems
           - harbor-dex.app.suncoast.systems
-          - vault.app.suncoast.systems
-          - vault-dex.app.suncoast.systems
+          - vault.teleport.suncoast.systems
+          - vault-dex.teleport.suncoast.systems
         paths: ["/*"]
       backends:
         - serviceName: teleport
