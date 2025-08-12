@@ -384,20 +384,20 @@ data:
               - "Host: harbor-dex.app.suncoast.systems"
 
         - name: vault
-          uri: http://vault-0.vault.svc.internal.lan
+          uri: http://vault.vault.svc.internal.lan:8200
           public_addr: vault.teleport.suncoast.systems
           insecure_skip_verify: true
           rewrite:
             headers:
-              - "Host: vault.teleport.suncoast.systems"
+              - "Host: vault.app.suncoast.systems"
 
         - name: vault-dex
-          uri: http://dex.vault.svc.internal.lan/dex
+          uri: http://dex.vault.svc.internal.lan:5556/dex
           public_addr: vault-dex.teleport.suncoast.systems
           insecure_skip_verify: true
           rewrite:
             headers:
-              - "Host: vault-dex.teleport.suncoast.systems"
+              - "Host: vault-dex.app.suncoast.systems"
 
     auth_service:
       enabled: true
