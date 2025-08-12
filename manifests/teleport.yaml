@@ -391,6 +391,14 @@ data:
           uri: http://dex.vault.svc.cluster.local
           public_addr: vault-dex-teleport.app.suncoast.systems
 
+        - name: argocd
+          uri: https://argocd-server.argocd.svc.cluster.local
+          public_addr: argocd.app.suncoast.systems
+
+        - name: argocd-dex
+          uri: http://argocd-dex-server.argocd.svc.cluster.local
+          public_addr: argocd-dex.app.suncoast.systems
+
     auth_service:
       enabled: true
       listen_addr: 0.0.0.0:3025
@@ -561,8 +569,10 @@ spec:
           - gateway-manager.app.suncoast.systems
           - harbor.app.suncoast.systems
           - harbor-dex.app.suncoast.systems
-          - vault.teleport.suncoast.systems
-          - vault-dex.teleport.suncoast.systems
+          - vault-teleport.app.suncoast.systems
+          - vault-dex-teleport.app.suncoast.systems
+          - argocd.app.suncoast.systems
+          - argocd-dex.app.suncoast.systems
         paths: ["/*"]
       backends:
         - serviceName: teleport
