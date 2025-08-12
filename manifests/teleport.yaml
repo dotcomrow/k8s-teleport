@@ -383,6 +383,14 @@ data:
             headers:
               - "Host: harbor-dex.app.suncoast.systems"
 
+        - name: vault
+          uri: http://vault.vault.svc.internal.lan
+          public_addr: vault.app.suncoast.systems
+          insecure_skip_verify: true
+          rewrite:
+            headers:
+              - "Host: vault.teleport.suncoast.systems"
+
     auth_service:
       enabled: true
       listen_addr: 0.0.0.0:3025
