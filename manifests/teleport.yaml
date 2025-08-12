@@ -391,6 +391,14 @@ data:
             headers:
               - "Host: vault.teleport.suncoast.systems"
 
+        - name: vault-dex
+          uri: http://dev.vault.svc.internal.lan/dex
+          public_addr: vault-dex.app.suncoast.systems
+          insecure_skip_verify: true
+          rewrite:
+            headers:
+              - "Host: vault-dex.teleport.suncoast.systems"
+
     auth_service:
       enabled: true
       listen_addr: 0.0.0.0:3025
