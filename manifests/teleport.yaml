@@ -357,8 +357,6 @@ data:
         - name: k8s-mgmt-console
           uri: https://rancher.cattle-system.svc.cluster.local
           public_addr: k8s.app.suncoast.systems
-          labels:
-            hidden: "false"
           insecure_skip_verify: true
           rewrite:
             headers:
@@ -368,14 +366,10 @@ data:
         - name: apisix-gateway-console
           uri: http://oauth2-proxy.apisix.svc.internal.lan
           public_addr: gateway-manager.app.suncoast.systems
-          labels:
-            hidden: "false"
 
         - name: harbor-console
           uri: https://10.0.0.10
           public_addr: harbor.app.suncoast.systems
-          labels:
-            hidden: "false"
           insecure_skip_verify: true
           rewrite:
             headers:
@@ -384,8 +378,6 @@ data:
         - name: harbor-dex
           uri: https://10.0.0.10
           public_addr: harbor-dex.app.suncoast.systems
-          labels:
-            hidden: "true"
           insecure_skip_verify: true
           rewrite:
             headers:
@@ -587,7 +579,6 @@ data:
       type: github
       connector_name: new_github_connector
       second_factor: otp
-      roles: ["hide-apps"]  # Add this line
 
     ---
     kind: role
@@ -600,6 +591,7 @@ data:
       allow:
         node_labels: {"*":"*"}
         db_labels: {"*":"*"}
+        app_labels: {"*":"*"}
         kubernetes_labels: {"*":"*"}
         windows_desktop_labels: {"*":"*"}
         logins: ["root","ubuntu"]
@@ -607,17 +599,6 @@ data:
           - resources: ["*"]
             verbs: ["*"]
         kubernetes_groups: ["system:masters"]
-
-    ---
-
-    kind: role
-    version: v7
-    metadata:
-      name: hide-apps
-    spec:
-      allow:
-        app_labels:
-          'hidden': 'false'
 
     ---
     kind: github
@@ -632,7 +613,7 @@ data:
       teams_to_roles:
         - organization: "<path:secret/data/k8s-teleport-teleport-github-org#value>"
           team: "<path:secret/data/k8s-teleport-teleport-github-admin-team#value>"
-          roles: ["admin", "hide-apps"]
+          roles: ["admin"]
         - organization: "<path:secret/data/k8s-teleport-teleport-github-org#value>"
           team: "<path:secret/data/k8s-teleport-teleport-github-user-team#value>"
-          roles: ["access", "hide-apps"]
+          roles: ["access"]
