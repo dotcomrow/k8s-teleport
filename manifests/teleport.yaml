@@ -626,7 +626,7 @@ data:
       teams_to_roles:
         - organization: "<path:secret/data/k8s-teleport-teleport-github-org#value>"
           team: "<path:secret/data/k8s-teleport-teleport-github-admin-team#value>"
-          roles: ["access","admin", "hide-apps"]
+          roles: ["admin", "hide-apps"]
         - organization: "<path:secret/data/k8s-teleport-teleport-github-org#value>"
           team: "<path:secret/data/k8s-teleport-teleport-github-user-team#value>"
           roles: ["access", "hide-apps"]
