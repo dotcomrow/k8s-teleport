@@ -378,6 +378,8 @@ data:
         - name: harbor-dex
           uri: https://10.0.0.10
           public_addr: harbor-dex.app.suncoast.systems
+          labels:
+            hidden: "true"
           insecure_skip_verify: true
           rewrite:
             headers:
@@ -579,6 +581,7 @@ data:
       type: github
       connector_name: new_github_connector
       second_factor: otp
+      roles: ["hidden"]  # Add this line
 
     ---
     kind: role
@@ -600,6 +603,17 @@ data:
             verbs: ["*"]
         kubernetes_groups: ["system:masters"]
 
+    ---
+
+    kind: role
+    version: v7
+    metadata:
+      name: hidden
+    spec:
+      allow:
+        app_labels:
+          'hidden': 'false'   # or omit 'hidden' label entirely to match all except hidden:true
+          '*': '*'
     ---
     kind: github
     version: v3
