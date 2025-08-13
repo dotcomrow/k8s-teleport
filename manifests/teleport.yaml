@@ -389,7 +389,7 @@ data:
 
         - name: vault-dex
           uri: http://dex.vault.svc.cluster.local:5556
-          public_addr: vault.app.suncoast.systems
+          public_addr: vault-dex.app.suncoast.systems
 
         - name: argocd
           uri: http://argocd-server.argocd.svc.cluster.local
