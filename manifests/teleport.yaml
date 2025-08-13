@@ -413,7 +413,6 @@ data:
       web_listen_addr: 0.0.0.0:3080
       tunnel_listen_addr: 127.0.0.1:3024
       public_addr: teleport.app.suncoast.systems:443
-      ssh_listen_addr: 0.0.0.0:3023
 
     kubernetes_service:
       enabled: true
