@@ -411,9 +411,9 @@ data:
     proxy_service:
       enabled: true
       web_listen_addr: 0.0.0.0:3080
-      # run the reverse tunnel listener locally so internal components don’t complain
       tunnel_listen_addr: 127.0.0.1:3024
-      public_addr: teleport.app.suncoast.systems:443   # for UI links
+      public_addr: teleport.app.suncoast.systems:443
+      ssh_listen_addr: 0.0.0.0:3023
 
     kubernetes_service:
       enabled: true
@@ -533,7 +533,11 @@ spec:
     - name: auth
       port: 3025
       targetPort: 3025
-  type: ClusterIP
+    - name: ssh
+      port: 3023
+      targetPort: 3023
+  type: LoadBalancer
+  loadBalancerIP: 10.0.0.121
 ---
 # ============================
 # APISIX route → Teleport over HTTPS
