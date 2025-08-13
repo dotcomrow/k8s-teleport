@@ -389,7 +389,7 @@ data:
 
         - name: vault-dex
           uri: http://dex.vault.svc.cluster.local:5556
-          public_addr: vault-dex-teleport.app.suncoast.systems
+          public_addr: vault.app.suncoast.systems
 
         - name: argocd
           uri: http://argocd-server.argocd.svc.cluster.local
@@ -572,8 +572,7 @@ spec:
           - gateway-manager.app.suncoast.systems
           - harbor.app.suncoast.systems
           - harbor-dex.app.suncoast.systems
-          - vault-teleport.app.suncoast.systems
-          - vault-dex-teleport.app.suncoast.systems
+          - vault.app.suncoast.systems
           - argocd.app.suncoast.systems
           - argocd-dex.app.suncoast.systems
         paths: ["/*"]
