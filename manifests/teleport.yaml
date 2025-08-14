@@ -407,6 +407,14 @@ data:
           uri: http://web.linkerd-viz.svc.cluster.local
           public_addr: linkerd.app.suncoast.systems
 
+        - name: pgweb-console
+          uri: http://oauth2-proxy-pgweb.yugabyte.svc.cluster.local
+          public_addr: pgweb.app.suncoast.systems
+
+        - name: yugabyte-console
+          uri: http://oauth2-proxy-yugabyte.yugabyte.svc.cluster.local
+          public_addr: yugabyte-console.app.suncoast.systems
+
     auth_service:
       enabled: true
       listen_addr: 0.0.0.0:3025
@@ -583,6 +591,11 @@ spec:
           - vault.app.suncoast.systems
           - argocd.app.suncoast.systems
           - argocd-dex.app.suncoast.systems
+          - policy-reporter.app.suncoast.systems
+          - linkerd.app.suncoast.systems
+          - jaeger.app.suncoast.systems
+          - pgweb.app.suncoast.systems
+          - yugabyte-console.app.suncoast.systems
         paths: ["/*"]
       backends:
         - serviceName: teleport
