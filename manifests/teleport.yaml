@@ -445,7 +445,7 @@ data:
       authentication:
         type: github
         connector_name: new_github_connector
-        local_auth: false       # <-- disables local username/password flow
+        local_auth: false
         second_factor: otp
 
     proxy_service:
