@@ -419,6 +419,22 @@ data:
           uri: http://oauth2-proxy-yugabyte.yugabyte.svc.cluster.local:4180
           public_addr: yugabyte.app.suncoast.systems
 
+        - name: pfsense
+          uri: https://10.0.0.10
+          public_addr: pfsense.app.suncoast.systems
+          insecure_skip_verify: true
+          rewrite:
+            headers:
+              - "Host: pfsense.suncoast.systems"
+
+        - name: proxmox
+          uri: https://10.0.0.10
+          public_addr: proxmox.app.suncoast.systems
+          insecure_skip_verify: true
+          rewrite:
+            headers:
+              - "Host: proxmox.suncoast.systems"
+
     auth_service:
       enabled: true
       listen_addr: 0.0.0.0:3025
