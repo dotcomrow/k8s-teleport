@@ -593,6 +593,7 @@ spec:
           - harbor.app.suncoast.systems
           - harbor-dex.app.suncoast.systems
           - vault.app.suncoast.systems
+          - vault-dex.app.suncoast.systems
           - argocd.app.suncoast.systems
           - argocd-dex.app.suncoast.systems
           - policy-reporter.app.suncoast.systems
