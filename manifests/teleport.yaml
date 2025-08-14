@@ -417,7 +417,7 @@ data:
 
         - name: yugabyte-console
           uri: http://oauth2-proxy-yugabyte.yugabyte.svc.cluster.local:4180
-          public_addr: yugabyte-console.app.suncoast.systems
+          public_addr: yugabyte.app.suncoast.systems
 
     auth_service:
       enabled: true
@@ -599,7 +599,7 @@ spec:
           - linkerd.app.suncoast.systems
           - jaeger.app.suncoast.systems
           - pgweb.app.suncoast.systems
-          - yugabyte-console.app.suncoast.systems
+          - yugabyte.app.suncoast.systems
         paths: ["/*"]
       backends:
         - serviceName: teleport
