@@ -400,19 +400,19 @@ data:
           public_addr: argocd-dex.app.suncoast.systems
 
         - name: kyverno-console
-          uri: http://kyverno-ui.policy-reporter.svc.cluster.local
+          uri: http://policy-reporter-ui.policy-reporter.svc.cluster.local
           public_addr: policy-reporter.app.suncoast.systems
 
         - name: linkerd-console
-          uri: http://web.linkerd-viz.svc.cluster.local
+          uri: http://oauth2-proxy.linkerd-viz.svc.cluster.local:4180
           public_addr: linkerd.app.suncoast.systems
 
         - name: pgweb-console
-          uri: http://oauth2-proxy-pgweb.yugabyte.svc.cluster.local
+          uri: http://oauth2-proxy-pgweb.yugabyte.svc.cluster.local:4180
           public_addr: pgweb.app.suncoast.systems
 
         - name: yugabyte-console
-          uri: http://oauth2-proxy-yugabyte.yugabyte.svc.cluster.local
+          uri: http://oauth2-proxy-yugabyte.yugabyte.svc.cluster.local:4180
           public_addr: yugabyte-console.app.suncoast.systems
 
     auth_service:
