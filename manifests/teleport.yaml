@@ -419,6 +419,10 @@ data:
           uri: http://oauth2-proxy-yugabyte.yugabyte.svc.cluster.local:4180
           public_addr: yugabyte.app.suncoast.systems
 
+        - name: OpenWebUI
+          uri: http://open-webui.ollama.svc.cluster.local
+          public_addr: ai.app.suncoast.systems
+
         - name: pfsense
           uri: https://10.0.0.10
           public_addr: pfsense.app.suncoast.systems
@@ -619,6 +623,7 @@ spec:
           - yugabyte.app.suncoast.systems
           - pfsense.app.suncoast.systems
           - proxmox.app.suncoast.systems
+          - ai.app.suncoast.systems
         paths: ["/*"]
       backends:
         - serviceName: teleport
