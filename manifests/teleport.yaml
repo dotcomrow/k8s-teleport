@@ -399,6 +399,14 @@ data:
           uri: http://argocd-dex-server.argocd.svc.cluster.local
           public_addr: argocd-dex.app.suncoast.systems
 
+        - name: kyverno-console
+          uri: http://kyverno-ui.policy-reporter.svc.cluster.local
+          public_addr: policy-reporter.app.suncoast.systems
+
+        - name: linkerd-console
+          uri: http://web.linkerd-viz.svc.cluster.local
+          public_addr: linkerd.app.suncoast.systems
+
     auth_service:
       enabled: true
       listen_addr: 0.0.0.0:3025
