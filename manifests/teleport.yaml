@@ -617,6 +617,8 @@ spec:
           - jaeger.app.suncoast.systems
           - pgweb.app.suncoast.systems
           - yugabyte.app.suncoast.systems
+          - pfsense.app.suncoast.systems
+          - proxmox.app.suncoast.systems
         paths: ["/*"]
       backends:
         - serviceName: teleport
