@@ -417,10 +417,6 @@ data:
         - name: pgweb-console
           uri: http://oauth2-proxy-pgweb.yugabyte.svc.cluster.local:4180
           public_addr: pgweb.app.suncoast.systems
-          rewrite:
-            redirect:
-              - from: "^/pgweb(/.*)?$"
-                to: "/$1"
 
         - name: yugabyte-console
           uri: http://oauth2-proxy-yugabyte.yugabyte.svc.cluster.local:4180
@@ -640,6 +636,13 @@ spec:
           enable: true
           config:
             ssl_verify: false
+        - name: proxy-rewrite
+          enable: true
+          match:
+            hosts:
+              - pgweb.app.suncoast.systems
+          config:
+            regex_uri: ["^/pgweb(/.*)?$", "/$1"]
 ---
 apiVersion: v1
 kind: ConfigMap
