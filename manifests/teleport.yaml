@@ -408,6 +408,7 @@ data:
           public_addr: linkerd.app.suncoast.systems
           rewrite:
             headers:
+              - "Host: web.linkerd-viz.svc.cluster.local"
               - "Origin: http://localhost"
 
         - name: jaeger-console
