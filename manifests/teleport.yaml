@@ -404,11 +404,11 @@ data:
           public_addr: policy-reporter.app.suncoast.systems
 
         - name: linkerd-console
-          uri: http://oauth2-proxy.linkerd-viz.svc.cluster.local:4180
+          uri: http://oauth2-proxy.linkerd-viz.svc.cluster.local
           public_addr: linkerd.app.suncoast.systems
 
         - name: jaeger-console
-          uri: http://oauth2-proxy-jaeger.linkerd-jaeger.svc.cluster.local:4180
+          uri: http://oauth2-proxy-jaeger.linkerd-jaeger.svc.cluster.local
           public_addr: jaeger.app.suncoast.systems
 
         - name: pgweb-console
