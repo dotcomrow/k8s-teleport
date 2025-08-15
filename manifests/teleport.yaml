@@ -406,6 +406,9 @@ data:
         - name: linkerd-console
           uri: http://oauth2-proxy.linkerd-viz.svc.cluster.local
           public_addr: linkerd.app.suncoast.systems
+          rewrite:
+            headers:
+              - "Origin: http://localhost"
 
         - name: jaeger-console
           uri: http://oauth2-proxy-jaeger.linkerd-jaeger.svc.cluster.local
@@ -414,6 +417,10 @@ data:
         - name: pgweb-console
           uri: http://oauth2-proxy-pgweb.yugabyte.svc.cluster.local:4180
           public_addr: pgweb.app.suncoast.systems
+          rewrite:
+            redirect:
+              - from: "^/pgweb(/.*)?$"
+                to: "/$1"
 
         - name: yugabyte-console
           uri: http://oauth2-proxy-yugabyte.yugabyte.svc.cluster.local:4180
@@ -633,22 +640,6 @@ spec:
           enable: true
           config:
             ssl_verify: false
-        - name: proxy-rewrite
-          enable: true
-          match:
-            hosts:
-              - pgweb.app.suncoast.systems
-          config:
-            regex_uri: ["^/pgweb(/.*)?$", "/$1"]
-        - name: proxy-rewrite
-          enable: true
-          match:
-            hosts:
-              - linkerd.app.suncoast.systems
-          config:
-            host: web.linkerd-viz.svc.cluster.local
-            headers:
-              set: '{"Origin": "http://localhost"}'
 ---
 apiVersion: v1
 kind: ConfigMap
