@@ -406,6 +406,10 @@ data:
         - name: linkerd-console
           uri: http://oauth2-proxy.linkerd-viz.svc.cluster.local
           public_addr: linkerd.app.suncoast.systems
+
+        - name: linkerd-direct
+          uri: http://linkerd-web-proxy.linkerd-viz.svc.cluster.local
+          public_addr: linkerd.app.suncoast.systems/api
           rewrite:
             headers:
               - "Host: web.linkerd-viz.svc.cluster.local"
