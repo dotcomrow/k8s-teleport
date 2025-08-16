@@ -655,15 +655,15 @@ spec:
           - linkerd.app.suncoast.systems
         paths:
           - "/api/*"
-        backends:
-          - serviceName: linkerd-web-proxy
-            servicePort: 80
-        plugins:
-          - name: proxy-rewrite
-            enable: true
-            config:
-              host: web.linkerd-viz.svc.cluster.local
-              headers:
+      backends:
+        - serviceName: linkerd-web-proxy
+          servicePort: 80
+      plugins:
+        - name: proxy-rewrite
+          enable: true
+          config:
+            host: web.linkerd-viz.svc.cluster.local
+            headers:
                 set: '{"Origin": "http://localhost"}'
 ---
 apiVersion: v1
