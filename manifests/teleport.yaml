@@ -407,14 +407,6 @@ data:
           uri: http://oauth2-proxy.linkerd-viz.svc.cluster.local
           public_addr: linkerd.app.suncoast.systems
 
-        # - name: linkerd-direct
-        #   uri: http://linkerd-web-proxy.linkerd-viz.svc.cluster.local
-        #   public_addr: linkerd.app.suncoast.systems/api
-        #   rewrite:
-        #     headers:
-        #       - "Host: web.linkerd-viz.svc.cluster.local"
-        #       - "Origin: http://localhost"
-
         - name: jaeger-console
           uri: http://oauth2-proxy-jaeger.linkerd-jaeger.svc.cluster.local
           public_addr: jaeger.app.suncoast.systems
@@ -648,23 +640,23 @@ spec:
               - pgweb.app.suncoast.systems
           config:
             regex_uri: ["^/pgweb(/.*)?$", "/$1"]
-    - name: direct-linkerd
-      websocket: true
-      match:
-        hosts:
-          - linkerd.app.suncoast.systems
-        paths:
-          - "/api/*"
-      backends:
-        - serviceName: linkerd-web-proxy
-          servicePort: 80
-      plugins:
-        - name: proxy-rewrite
-          enable: true
-          config:
-            host: web.linkerd-viz.svc.cluster.local
-            headers:
-                set: '{"Origin": "http://localhost"}'
+    # - name: direct-linkerd
+    #   websocket: true
+    #   match:
+    #     hosts:
+    #       - linkerd.app.suncoast.systems
+    #     paths:
+    #       - "/api/*"
+    #   backends:
+    #     - serviceName: linkerd-web-proxy
+    #       servicePort: 80
+    #   plugins:
+    #     - name: proxy-rewrite
+    #       enable: true
+    #       config:
+    #         host: web.linkerd-viz.svc.cluster.local
+    #         headers:
+    #             set: '{"Origin": "http://localhost"}'
 ---
 apiVersion: v1
 kind: ConfigMap
