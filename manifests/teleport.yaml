@@ -593,7 +593,6 @@ metadata:
 spec:
   scheme: https             # talk HTTPS to upstream
   passHost: pass            # forward original Host header
-  # You can leave the rest empty; the controller will fill service endpoints
 ---
 apiVersion: apisix.apache.org/v2
 kind: ApisixRoute
@@ -642,23 +641,6 @@ spec:
           enable: true
           config:
             regex_uri: ["^/pgweb(/.*)?$", "/$1"]
-    # - name: direct-linkerd
-    #   websocket: true
-    #   match:
-    #     hosts:
-    #       - linkerd.app.suncoast.systems
-    #     paths:
-    #       - "/api/*"
-    #   backends:
-    #     - serviceName: linkerd-web-proxy
-    #       servicePort: 80
-    #   plugins:
-    #     - name: proxy-rewrite
-    #       enable: true
-    #       config:
-    #         host: web.linkerd-viz.svc.cluster.local
-    #         headers:
-    #             set: '{"Origin": "http://localhost"}'
 ---
 apiVersion: v1
 kind: ConfigMap
