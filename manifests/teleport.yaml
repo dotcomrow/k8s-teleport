@@ -628,6 +628,7 @@ spec:
           - pfsense.app.suncoast.systems
           - proxmox.app.suncoast.systems
           - ai.app.suncoast.systems
+          - keycloak.app.suncoast.systems
         paths: ["/*"]
       backends:
         - serviceName: teleport
