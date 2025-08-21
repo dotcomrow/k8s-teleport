@@ -596,6 +596,10 @@ metadata:
 spec:
   scheme: https             # talk HTTPS to upstream
   passHost: pass            # forward original Host header
+  timeout:
+    connect: 10s
+    send: 3600s
+    read: 3600s        
 ---
 apiVersion: apisix.apache.org/v2
 kind: ApisixRoute
