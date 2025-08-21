@@ -522,7 +522,8 @@ spec:
             - start
             - -c
             - /etc/teleport/teleport.yaml
-            - --bootstrap=/bootstrap/github.yaml
+            - --bootstrap=/bootstrap/initial_config.yaml
+            - --apply-on-startup=/bootstrap/additional.yaml
           ports:
             - name: auth
               containerPort: 3025
@@ -648,7 +649,7 @@ metadata:
   name: teleport-bootstrap
   namespace: teleport
 data:
-  github.yaml: |
+  initial_config.yaml: |
     ---
     kind: cluster_auth_preference
     version: v2
@@ -696,3 +697,29 @@ data:
         - organization: "<path:secret/data/k8s-teleport-teleport-github-org#value>"
           team: "<path:secret/data/k8s-teleport-teleport-github-user-team#value>"
           roles: ["access"]
+  additional.yaml: |
+    ---
+    kind: role
+    version: v7
+    metadata: { name: vault-app-bot }
+    spec:
+      allow:
+        app_labels:
+          app: vault
+    ---
+    kind: bot
+    version: v1
+    metadata: { name: vault-bot }
+    spec: { roles: [vault-app-bot] }
+    ---
+    kind: token
+    version: v2
+    metadata: { name: vault-bot-gcp }
+    spec:
+      roles: [Bot]
+      bot_name: vault-bot
+      join_method: gcp
+      gcp:
+        allow:
+        - project_ids: ["<path:secret/data/k8s-teleport-vault-project-id#value>"]
+          service_accounts: ["<path:secret/data/k8s-teleport-vault-service-account#value>"]
