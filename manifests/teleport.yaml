@@ -397,10 +397,6 @@ data:
           uri: http://argocd-server.argocd.svc.cluster.local
           public_addr: argocd.app.suncoast.systems
 
-        - name: zitadel
-          uri: http://zitadel.zitadel.svc.cluster.local
-          public_addr: zitadel.app.suncoast.systems
-
         - name: argocd-dex
           uri: http://argocd-dex-server.argocd.svc.cluster.local
           public_addr: argocd-dex.app.suncoast.systems
@@ -634,7 +630,6 @@ spec:
           - pfsense.app.suncoast.systems
           - proxmox.app.suncoast.systems
           - ai.app.suncoast.systems
-          - zitadel.app.suncoast.systems
         paths: ["/*"]
       backends:
         - serviceName: teleport
