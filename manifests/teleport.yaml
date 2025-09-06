@@ -397,6 +397,10 @@ data:
           uri: http://argocd-server.argocd.svc.cluster.local
           public_addr: argocd.app.suncoast.systems
 
+        - name: zitadel
+          uri: http://zitadel.zitadel.svc.cluster.local
+          public_addr: zitadel.app.suncoast.systems
+
         - name: argocd-dex
           uri: http://argocd-dex-server.argocd.svc.cluster.local
           public_addr: argocd-dex.app.suncoast.systems
@@ -424,10 +428,6 @@ data:
         - name: openwebui-console
           uri: http://open-webui.ollama.svc.cluster.local
           public_addr: ai.app.suncoast.systems
-
-        - name: keycloak
-          uri: http://keycloak.keycloak.svc.cluster.local:8080
-          public_addr: keycloak.app.suncoast.systems
 
         - name: pfsense
           uri: https://10.0.0.10
@@ -634,7 +634,7 @@ spec:
           - pfsense.app.suncoast.systems
           - proxmox.app.suncoast.systems
           - ai.app.suncoast.systems
-          - keycloak.app.suncoast.systems
+          - zitadel.app.suncoast.systems
         paths: ["/*"]
       backends:
         - serviceName: teleport
