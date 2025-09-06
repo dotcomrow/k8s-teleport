@@ -61,6 +61,7 @@ metadata:
   name: teleport-sa
   namespace: teleport
 ---
+# Impersonation for K8s access via Teleport
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -87,8 +88,34 @@ subjects:
   namespace: teleport
 ---
 # ============================
+# Watchdog RBAC (allow pod self-delete for auto-restart)
+# ============================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: teleport-self-kill
+  namespace: teleport
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get","delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: teleport-self-kill-binding
+  namespace: teleport
+subjects:
+- kind: ServiceAccount
+  name: teleport-sa
+  namespace: teleport
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: teleport-self-kill
+---
+# ============================
 # PreSync: generate etcd TLS (CA + server cert)
-#   - writes Secret: etcd-tls  (ca.crt, server.crt, server.key)
 # ============================
 apiVersion: batch/v1
 kind: Job
@@ -114,7 +141,7 @@ spec:
             - name: work
               mountPath: /work
           command: ["/bin/sh","-c"]
-          args: 
+          args:
             - |
               apk add --no-cache openssl
 
@@ -195,7 +222,7 @@ spec:
             - name: work
               mountPath: /work
           command: ["/bin/sh","-c"]
-          args: 
+          args:
             - |
               while [ ! -f /work/ready ]; do sleep 1; done
               kubectl -n teleport create secret generic etcd-tls \
@@ -272,7 +299,7 @@ spec:
             - --trusted-ca-file=/etc/etcd/pki/ca.crt
             - --cert-file=/etc/etcd/pki/server.crt
             - --key-file=/etc/etcd/pki/server.key
-            # Peer TLS (single node but keep consistent)
+            # Peer TLS
             - --listen-peer-urls=https://0.0.0.0:2380
             - --initial-advertise-peer-urls=https://$(POD_NAME).etcd.teleport.svc.cluster.local:2380
             - --peer-trusted-ca-file=/etc/etcd/pki/ca.crt
@@ -302,13 +329,11 @@ spec:
               cpu: "500m"
               memory: "512Mi"
           readinessProbe:
-            tcpSocket:
-              port: 2379
+            tcpSocket: { port: 2379 }
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
-            tcpSocket:
-              port: 2379
+            tcpSocket: { port: 2379 }
             initialDelaySeconds: 15
             periodSeconds: 10
           volumeMounts:
@@ -445,6 +470,7 @@ data:
       enabled: true
       listen_addr: 0.0.0.0:3025
       proxy_listener_mode: multiplex
+      proxy_protocol: off
       authentication:
         type: github
         connector_name: new_github_connector
@@ -459,7 +485,6 @@ data:
 
     kubernetes_service:
       enabled: true
-      # make it explicitly reachable from the local proxy in this same process
       listen_addr: 127.0.0.1:3026
       kube_cluster_name: local
 
@@ -467,7 +492,7 @@ data:
       enabled: false
 ---
 # ============================
-# Teleport Deployment
+# Teleport Deployment (+ watchdog sidecar)
 # ============================
 apiVersion: apps/v1
 kind: Deployment
@@ -490,9 +515,8 @@ spec:
       initContainers:
         - name: wait-for-etcd
           image: busybox:1.36
-          command:
-            - /bin/sh
-            - -c
+          command: ["/bin/sh","-c"]
+          args:
             - |
               host="etcd-0.etcd.teleport.svc.cluster.local"
               echo "Waiting for DNS: $host"
@@ -516,50 +540,77 @@ spec:
         - name: teleport
           image: public.ecr.aws/gravitational/teleport-distroless:18.1.4
           imagePullPolicy: IfNotPresent
-          command:
-            - teleport
-            - start
-            - -c
-            - /etc/teleport/teleport.yaml
-            - --bootstrap=/bootstrap/initial_config.yaml
-            - --apply-on-startup=/bootstrap/additional.yaml
+          command: ["teleport","start","-c","/etc/teleport/teleport.yaml","--bootstrap=/bootstrap/initial_config.yaml","--apply-on-startup=/bootstrap/additional.yaml"]
           ports:
-            - name: auth
-              containerPort: 3025
-            - name: web
-              containerPort: 3080
+            - { name: auth, containerPort: 3025 }
+            - { name: web,  containerPort: 3080 }
           resources:
-            requests:
-              cpu: "100m"
-              memory: "512Mi"
-            limits:
-              cpu: "1000m"
-              memory: "1Gi"
+            requests: { cpu: "100m", memory: "512Mi" }
+            limits:   { cpu: "1000m", memory: "1Gi" }
           volumeMounts:
-            - name: teleport-config
-              mountPath: /etc/teleport
-              readOnly: true
-            - name: teleport-data
-              mountPath: /var/lib/teleport
-            - name: etcd-ca
-              mountPath: /etc/etcd-ca
-              readOnly: true
-            - name: teleport-bootstrap
-              mountPath: /bootstrap
-              readOnly: true
+            - { name: teleport-config,   mountPath: /etc/teleport,    readOnly: true }
+            - { name: teleport-data,     mountPath: /var/lib/teleport }
+            - { name: etcd-ca,           mountPath: /etc/etcd-ca,     readOnly: true }
+            - { name: teleport-bootstrap,mountPath: /bootstrap,        readOnly: true }
           readinessProbe:
-            tcpSocket:
-              port: 3080
+            tcpSocket: { port: 3080 }
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
-            tcpSocket:
-              port: 3080
+            tcpSocket: { port: 3080 }
             initialDelaySeconds: 20
             periodSeconds: 10
+
+        # Watchdog: restart pod if /webapi/connectionupgrade doesn't return 101
+        - name: teleport-guard
+          image: curlimages/curl:8.8.0
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh","-lc"]
+          args:
+            - |
+              set -eu
+              HOST="teleport.app.suncoast.systems"
+              URL="https://${HOST}/webapi/connectionupgrade"
+              FAILS=0
+              THRESH=3
+              SLEEP=20
+              api() {
+                curl -sSk --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
+                  -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" "$@"
+              }
+              while :; do
+                CODE=$(curl --http1.1 --no-alpn -sk -o /dev/null -D - \
+                  -H 'Connection: Upgrade' \
+                  -H 'Upgrade: websocket' \
+                  -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
+                  -H 'Sec-WebSocket-Version: 13' \
+                  -H 'X-Teleport-Upgrade: websocket' \
+                  -w '%{http_code}' \
+                  "$URL" | sed -n 's/^HTTP\/1\.[01] \([0-9][0-9][0-9]\).*/\1/p' | tail -1 || true)
+                if [ "${CODE:-}" = "101" ]; then
+                  FAILS=0
+                else
+                  FAILS=$((FAILS+1))
+                  echo "teleport-guard: HTTP ${CODE:-?} (fail ${FAILS}/${THRESH})"
+                fi
+                if [ "$FAILS" -ge "$THRESH" ]; then
+                  echo "teleport-guard: restarting pod ${POD_NAME} (WS upgrade failing)"
+                  api -X DELETE "https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}/api/v1/namespaces/${POD_NAMESPACE}/pods/${POD_NAME}" || true
+                  sleep 300
+                fi
+                sleep "$SLEEP"
+              done
+          env:
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+            - name: POD_NAMESPACE
+              valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+          resources:
+            requests: { cpu: "10m", memory: "32Mi" }
+            limits:   { cpu: "50m", memory: "64Mi" }
 ---
 # ============================
-# Teleport Service (ClusterIP)
+# Teleport Service (LB for APISIX)
 # ============================
 apiVersion: v1
 kind: Service
@@ -588,15 +639,15 @@ spec:
 apiVersion: apisix.apache.org/v2
 kind: ApisixUpstream
 metadata:
-  name: teleport            # <-- must match Service name
-  namespace: teleport       # <-- and namespace
+  name: teleport
+  namespace: teleport
 spec:
-  scheme: https             # talk HTTPS to upstream
-  passHost: pass            # forward original Host header
+  scheme: https
+  passHost: pass
   timeout:
     connect: 10s
     send: 3600s
-    read: 3600s        
+    read: 3600s
 ---
 apiVersion: apisix.apache.org/v2
 kind: ApisixRoute
@@ -645,6 +696,9 @@ spec:
           config:
             regex_uri: ["^/pgweb(/.*)?$", "/$1"]
 ---
+# ============================
+# Teleport bootstrap resources
+# ============================
 apiVersion: v1
 kind: ConfigMap
 metadata:
