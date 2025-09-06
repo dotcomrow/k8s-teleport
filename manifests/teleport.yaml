@@ -455,6 +455,7 @@ data:
       enabled: true
       web_listen_addr: 0.0.0.0:3080
       public_addr: ["teleport.app.suncoast.systems:443"]
+      proxy_protocol: off
 
     kubernetes_service:
       enabled: true
