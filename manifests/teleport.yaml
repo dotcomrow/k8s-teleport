@@ -486,8 +486,6 @@ data:
       web_listen_addr: 0.0.0.0:3080
       public_addr: ["teleport.app.suncoast.systems:443"]
       proxy_protocol: off
-      kube_public_addr:
-        - teleport.app.suncoast.systems:443
 
     kubernetes_service:
       enabled: true
