@@ -567,41 +567,89 @@ spec:
 
         # Watchdog: restart pod if /webapi/connectionupgrade doesn't return 101
         - name: teleport-guard
-          image: curlimages/curl:8.8.0
+          image: alpine:3.20
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh","-lc"]
           args:
             - |
               set -eu
-              HOST="teleport.app.suncoast.systems"
-              URL="https://${HOST}/webapi/connectionupgrade"
+              # Tools we need: curl, jq, openssl (small install, ~7–8 MB)
+              apk add --no-cache curl jq openssl >/dev/null
+
+              HOST="${HOST:-teleport.app.suncoast.systems}"
+              URL="https://${HOST}"
               FAILS=0
-              THRESH=3
-              SLEEP=20
+              THRESH="${THRESH:-3}"
+              SLEEP="${SLEEP:-30}"
+
               api() {
-                curl -sSk --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
+                curl -fsS --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
                   -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" "$@"
               }
-              while :; do
-                CODE=$(curl --http1.1 --no-alpn -sk -o /dev/null -D - \
+
+              # --- Checks ---------------------------------------------------------
+              check_ping_json() {
+                # Stateless, should return JSON with cluster info; fail if not valid JSON with a cluster_name.
+                curl -fsS "${URL}/webapi/ping" \
+                | jq -e '.cluster_name and .proxy_version' >/dev/null
+              }
+
+              check_ws_upgrade() {
+                # WS upgrade response must be 101 and include "Upgrade: websocket".
+                # NOTE: Use a harmless path that does not require a session.
+                # /webapi/connectionupgrade is ok, but we parse headers carefully and rate-limit probes.
+                local hdrs
+                hdrs="$(curl --http1.1 --no-alpn -sS -o /dev/null -D - \
                   -H 'Connection: Upgrade' \
                   -H 'Upgrade: websocket' \
                   -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
                   -H 'Sec-WebSocket-Version: 13' \
                   -H 'X-Teleport-Upgrade: websocket' \
-                  -w '%{http_code}' \
-                  "$URL" | sed -n 's/^HTTP\/1\.[01] \([0-9][0-9][0-9]\).*/\1/p' | tail -1 || true)
-                if [ "${CODE:-}" = "101" ]; then
+                  -w 'HTTP/%{http_version} %{http_code}\n' \
+                  "${URL}/webapi/connectionupgrade" || true)"
+                echo "$hdrs" | awk 'BEGIN{ok=0} /HTTP\/1\.[01] 101/{ok=1} END{exit !ok}'
+                echo "$hdrs" | awk 'BEGIN{ok=0} tolower($0) ~ /^upgrade:\s*websocket/{ok=1} END{exit !ok}'
+              }
+
+              check_alpn_mux() {
+                # Teleport multiplexes SSH/reverse tunnel on 443 via ALPN "teleport-ssh".
+                # If this does not negotiate, tunnels and agents are likely broken.
+                # We expect: "ALPN protocol: teleport-ssh"
+                # We also ensure cert completes the handshake.
+                openssl s_client -connect "${HOST}:443" -servername "${HOST}" -alpn teleport-ssh -brief < /dev/null 2>/dev/null \
+                  | awk 'BEGIN{ok=0} /ALPN protocol:\s*teleport-ssh/{ok=1} END{exit !ok}'
+              }
+
+              # --- Main loop ------------------------------------------------------
+              while :; do
+                ok=1
+                if ! check_ping_json; then
+                  echo "teleport-guard: /webapi/ping failed JSON/fields"
+                  ok=0
+                fi
+                if ! check_ws_upgrade; then
+                  echo "teleport-guard: websocket upgrade not healthy (no 101/Upgrade header)"
+                  ok=0
+                fi
+                if ! check_alpn_mux; then
+                  echo "teleport-guard: ALPN mux check failed (no teleport-ssh negotiated)"
+                  ok=0
+                fi
+
+                if [ "$ok" -eq 1 ]; then
                   FAILS=0
                 else
                   FAILS=$((FAILS+1))
-                  echo "teleport-guard: HTTP ${CODE:-?} (fail ${FAILS}/${THRESH})"
+                  echo "teleport-guard: fail ${FAILS}/${THRESH}"
                 fi
+
                 if [ "$FAILS" -ge "$THRESH" ]; then
-                  echo "teleport-guard: restarting pod ${POD_NAME} (WS upgrade failing)"
+                  echo "teleport-guard: restarting pod ${POD_NAME} (Teleport health failing)"
                   api -X DELETE "https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}/api/v1/namespaces/${POD_NAMESPACE}/pods/${POD_NAME}" || true
                   sleep 300
+                  FAILS=0
                 fi
+
                 sleep "$SLEEP"
               done
           env:
@@ -609,6 +657,13 @@ spec:
               valueFrom: { fieldRef: { fieldPath: metadata.name } }
             - name: POD_NAMESPACE
               valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+            - name: HOST
+              value: "teleport.app.suncoast.systems"
+            # Optional tuning (defaults shown):
+            - name: THRESH
+              value: "3"
+            - name: SLEEP
+              value: "30"
           resources:
             requests: { cpu: "10m", memory: "32Mi" }
             limits:   { cpu: "50m", memory: "64Mi" }
