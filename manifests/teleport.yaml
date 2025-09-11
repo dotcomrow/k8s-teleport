@@ -583,42 +583,49 @@ spec:
               FAILS=0
               THRESH="${THRESH:-3}"
               SLEEP="${SLEEP:-30}"
-              ENABLE_ALPN="${ENABLE_ALPN:-0}"   # set to "1" only if Teleport ALPN mux is really on :443
+              ENABLE_ALPN="${ENABLE_ALPN:-0}"   # set "1" only if Teleport ALPN mux is really on :443
               VERBOSE="${VERBOSE:-0}"
+              PIN_DNS="${PIN_DNS:-0}"           # set "1" to pin DNS each loop via curl --resolve
+              BYPASS_PING="${BYPASS_PING:-0}"   # set "1" to skip /webapi/ping entirely
 
               api() {
                 curl -fsS --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
                   -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" "$@"
               }
 
+              # Common curl flags: HTTP/1.1, short timeout, quiet but strict on failures.
+              CURL_COMMON="--http1.1 --max-time 4 -sS"
+
+              # Pin DNS per loop to avoid transient resolver blips.
+              pin_resolve_args() {
+                [ "$PIN_DNS" = "1" ] || return 0
+                ip="$(getent hosts "$HOST" | awk '{print $1}' | head -1 || true)"
+                [ -n "$ip" ] && printf -- "--resolve %s:443:%s" "$HOST" "$ip"
+              }
+
               # ----- Checks -------------------------------------------------------
               check_ping_http_jsonish() {
-                # Expect 200 and JSON content-type. Do not require specific fields.
-                # Return 0 (ok) if both conditions met.
+                [ "$BYPASS_PING" = "1" ] && return 0
                 local code ctype body
-                # headers+code
-                code="$(curl -sS -o /tmp/ping.out -D - -w '%{http_code}' "${BASE_URL}${PING_PATH}" || true)"
+                code="$(curl $CURL_COMMON $(pin_resolve_args) -o /tmp/ping.out -D - -w '%{http_code}' \
+                        "${BASE_URL}${PING_PATH}" || true)"
                 ctype="$(sed -n 's/^[Cc]ontent-[Tt]ype:[[:space:]]*\(.*\)$/\1/p' /tmp/ping.out | head -1 || true)"
-                body="$(tail -n +1 /tmp/ping.out | sed '1,/^\r\?$/d' || true)"
+                body="$(sed '1,/^\r\?$/d' /tmp/ping.out || true)"
 
-                [ "${VERBOSE}" = "1" ] && { echo "ping code=${code} ctype=${ctype}"; echo "ping body(head):" ; echo "$body" | head -2; }
+                [ "${VERBOSE}" = "1" ] && { echo "ping code=${code} ctype=${ctype}"; echo "ping body(head):"; echo "$body" | head -2; }
 
-                # Some proxies return 200 text/plain but JSON body; accept that if it parses.
+                # Accept 200 with JSON (by parse or content-type) OR common 3xx auth redirects.
                 if [ "$code" = "200" ]; then
-                  if printf '%s' "$body" | jq -e . >/dev/null 2>&1; then
-                    return 0
-                  fi
-                  case "$ctype" in
-                    *application/json*|*+json*) return 0 ;;
-                  esac
+                  printf '%s' "$body" | jq -e . >/dev/null 2>&1 && return 0
+                  case "$ctype" in *application/json*|*+json*) return 0 ;; esac
                 fi
+                case "$code" in 301|302|303|307|308) return 0 ;; esac
                 return 1
               }
 
               check_ws_upgrade() {
-                # Must be HTTP/1.1 101 and 'Upgrade: websocket' in headers
                 local hdrs
-                hdrs="$(curl --http1.1 --no-alpn -sS -o /dev/null -D - \
+                hdrs="$(curl $CURL_COMMON --no-alpn $(pin_resolve_args) -o /dev/null -D - \
                   -H 'Connection: Upgrade' \
                   -H 'Upgrade: websocket' \
                   -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
@@ -633,33 +640,21 @@ spec:
 
               check_alpn_mux() {
                 [ "$ENABLE_ALPN" = "1" ] || return 0  # treat as OK when disabled
-                openssl s_client -connect "${HOST}:443" -servername "${HOST}" -alpn teleport-ssh -brief < /dev/null 2>/dev/null \
+                openssl s_client -connect "${HOST}:443" -servername "${HOST}" -alpn teleport-ssh -brief </dev/null 2>/dev/null \
                   | awk 'BEGIN{ok=0} /ALPN protocol:\s*teleport-ssh/{ok=1} END{exit !ok}'
               }
 
               # ----- Main loop ----------------------------------------------------
               while :; do
                 ok_any=0
+                pass=""
 
-                if check_ping_http_jsonish; then
-                  ok_any=1
-                else
-                  echo "teleport-guard: ping not JSON/200 (proxy may be redirecting/login)."
-                fi
-
-                if check_ws_upgrade; then
-                  ok_any=1
-                else
-                  echo "teleport-guard: websocket upgrade check failed."
-                fi
-
-                if check_alpn_mux; then
-                  ok_any=1
-                else
-                  [ "$ENABLE_ALPN" = "1" ] && echo "teleport-guard: ALPN mux (teleport-ssh) not negotiated."
-                fi
+                if check_ws_upgrade; then ok_any=1; pass="${pass} WS"; else echo "teleport-guard: websocket upgrade check failed."; fi
+                if check_ping_http_jsonish; then ok_any=1; pass="${pass} PING"; else echo "teleport-guard: ping not JSON/200 (proxy may be redirecting/login)."; fi
+                if check_alpn_mux; then ok_any=1; pass="${pass} ALPN"; else [ "$ENABLE_ALPN" = "1" ] && echo "teleport-guard: ALPN mux (teleport-ssh) not negotiated."; fi
 
                 if [ "$ok_any" -eq 1 ]; then
+                  [ -n "$pass" ] && echo "teleport-guard: PASS:${pass}"
                   FAILS=0
                 else
                   FAILS=$((FAILS+1))
@@ -682,14 +677,18 @@ spec:
               valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
             - name: HOST
               value: "teleport.app.suncoast.systems"
-            # Optional tuning:
+            # Tuning knobs (safe defaults)
             - name: THRESH
               value: "3"
             - name: SLEEP
               value: "30"
-            - name: ENABLE_ALPN
-              value: "0"    # set "1" only if Teleport listens on 443 with ALPN mux
+            - name: ENABLE_ALPN     # keep "0" unless Teleport listens on :443 with ALPN mux
+              value: "0"
             - name: VERBOSE
+              value: "0"
+            - name: PIN_DNS         # recommended "1" to smooth transient DNS misses
+              value: "1"
+            - name: BYPASS_PING     # set "1" if your proxy always mangles /webapi/ping
               value: "0"
           resources:
             requests: { cpu: "10m", memory: "32Mi" }
