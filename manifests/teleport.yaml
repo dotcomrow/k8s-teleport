@@ -691,8 +691,8 @@ spec:
             - name: BYPASS_PING     # set "1" if your proxy always mangles /webapi/ping
               value: "0"
           resources:
-            requests: { cpu: "10m", memory: "32Mi" }
-            limits:   { cpu: "50m", memory: "64Mi" }
+            requests: { cpu: "100m", memory: "32Mi" }
+            limits:   { cpu: "500m", memory: "64Mi" }
 ---
 # ============================
 # Teleport Service (LB for APISIX)
