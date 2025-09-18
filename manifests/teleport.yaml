@@ -455,7 +455,7 @@ data:
           public_addr: keycloak.app.suncoast.systems
 
         - name: redis-ui
-          uri: http://redisinsight.redis.svc.cluster.local
+          uri: http://oauth2-proxy-redisinsight.redis.svc.cluster.local:4180
           public_addr: redisui.app.suncoast.systems
 
         - name: pfsense
