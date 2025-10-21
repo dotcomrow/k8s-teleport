@@ -782,6 +782,7 @@ spec:
           - keycloak.app.suncoast.systems
           - redisui.app.suncoast.systems
           - kafka-gui.app.suncoast.systems
+          - debezium-ui.app.suncoast.systems
 
         paths: ["/*"]
       backends:
