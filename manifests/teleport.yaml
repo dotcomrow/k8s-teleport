@@ -468,7 +468,7 @@ data:
 
         - name: debezium-api
           uri: http://oauth2-proxy-debezium-api.kafka.svc.cluster.local:4180
-          public_addr: debezium-ui.app.suncoast.systems/api
+          public_addr: debezium-ui-api.app.suncoast.systems
 
         - name: pfsense
           uri: https://10.0.0.10
@@ -787,6 +787,7 @@ spec:
           - redisui.app.suncoast.systems
           - kafka-gui.app.suncoast.systems
           - debezium-ui.app.suncoast.systems
+          - debezium-ui-api.app.suncoast.systems
 
         paths: ["/*"]
       backends:
