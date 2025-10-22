@@ -805,7 +805,7 @@ spec:
 apiVersion: apisix.apache.org/v2
 kind: ApisixRoute
 metadata:
-  name: debezium-ui-api-via-teleport
+  name: teleport-cors-routes
   namespace: teleport
 spec:
   ingressClassName: apisix
