@@ -820,8 +820,7 @@ spec:
         hosts:
           - debezium-ui.app.suncoast.systems
           - debezium-ui-api.app.suncoast.systems
-        paths:
-          - ["/*"]
+        paths: ["/*"]
       backends:
         - serviceName: teleport
           servicePort: 3080
