@@ -807,6 +807,10 @@ kind: ApisixRoute
 metadata:
   name: teleport-cors-routes
   namespace: teleport
+  annotations:
+    apisix.apache.org/timeout: "900"
+    apisix.apache.org/websocket: "true"
+    apisix.apache.org/enable-cors: "true"
 spec:
   ingressClassName: apisix
   http:
@@ -817,7 +821,7 @@ spec:
           - debezium-ui.app.suncoast.systems
           - debezium-ui-api.app.suncoast.systems
         paths:
-          - "/*"
+          - ["/*"]
       backends:
         - serviceName: teleport
           servicePort: 3080
