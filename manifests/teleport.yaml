@@ -802,6 +802,28 @@ spec:
           enable: true
           config:
             regex_uri: ["^/pgweb(/.*)?$", "/$1"]
+        - name: cors
+          enable: true
+          config:
+            allow_origins_by_regex:
+              - "^https://.*\\.app\\.suncoast\\.systems$"
+            allow_methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allow_headers:
+              - Authorization
+              - Content-Type
+              - X-Requested-With
+              - Accept
+              - Origin
+            expose_headers:
+              - Authorization
+              - Content-Type
+            allow_credentials: true
+            max_age: 3600
 ---
 # ============================
 # Teleport bootstrap resources
