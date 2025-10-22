@@ -466,6 +466,10 @@ data:
           uri: http://oauth2-proxy-debezium.kafka.svc.cluster.local:4180
           public_addr: debezium-ui.app.suncoast.systems
 
+        - name: debezium-api
+          uri: http://oauth2-proxy-debezium-api.kafka.svc.cluster.local:4180
+          public_addr: debezium-ui.app.suncoast.systems/api
+
         - name: pfsense
           uri: https://10.0.0.10
           public_addr: pfsense.app.suncoast.systems
