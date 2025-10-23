@@ -538,7 +538,7 @@ data:
         - types: ["app"]
           namespaces: ["*"]
           # Only discover services with Teleport annotations
-          labels:
+          annotations:
             "teleport.dev/name": "*"
 
     ssh_service:
