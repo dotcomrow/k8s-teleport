@@ -462,6 +462,10 @@ data:
           uri: http://oauth2-proxy.kafka.svc.cluster.local:4180
           public_addr: kafka-gui.app.suncoast.systems
 
+        - name: rules-engine-gui
+          uri: http://dnm-gui.dmn.svc.cluster.local
+          public_addr: rules-engine-gui.app.suncoast.systems
+
         - name: pfsense
           uri: https://10.0.0.10
           public_addr: pfsense.app.suncoast.systems
@@ -778,6 +782,7 @@ spec:
           - keycloak.app.suncoast.systems
           - redisui.app.suncoast.systems
           - kafka-gui.app.suncoast.systems
+          - rules-engine-gui.app.suncoast.systems
 
         paths: ["/*"]
       backends:
