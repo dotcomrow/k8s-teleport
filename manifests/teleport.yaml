@@ -504,6 +504,11 @@ data:
             headers:
               - "Host: proxmox.suncoast.systems"
 
+      resources:
+        - labels:
+            "teleport.dev/kubernetes-cluster": "main-cluster"
+            "teleport.dev/origin": "discovery-kubernetes"
+
     auth_service:
       enabled: true
       listen_addr: 0.0.0.0:3025
@@ -525,12 +530,15 @@ data:
       enabled: true
       listen_addr: 127.0.0.1:3026
       kube_cluster_name: local
-      # Enable service discovery for auto-registration of annotated services
-      resources:
-        - labels:
+
+    discovery_service:
+      enabled: true
+      discovery_group: main-cluster
+      kubernetes:
+        - types: ["app"]
+          namespaces: ["*"]
+          labels:
             "*": "*"
-          kinds:
-            - service
 
     ssh_service:
       enabled: false
