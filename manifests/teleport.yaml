@@ -87,6 +87,32 @@ subjects:
   name: teleport-sa
   namespace: teleport
 ---
+# Service discovery for auto-registration of annotated services
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: teleport-service-discovery
+rules:
+- apiGroups: [""]
+  resources: ["services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: teleport-service-discovery-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: teleport-service-discovery
+subjects:
+- kind: ServiceAccount
+  name: teleport-sa
+  namespace: teleport
+---
 # ============================
 # Watchdog RBAC (allow pod self-delete for auto-restart)
 # ============================
@@ -462,10 +488,6 @@ data:
           uri: http://oauth2-proxy.kafka.svc.cluster.local:4180
           public_addr: kafka-gui.app.suncoast.systems
 
-        - name: rules-engine-gui
-          uri: http://dmn-gui.dmn.svc.cluster.local
-          public_addr: rules-engine-gui.app.suncoast.systems
-
         - name: pfsense
           uri: https://10.0.0.10
           public_addr: pfsense.app.suncoast.systems
@@ -503,6 +525,12 @@ data:
       enabled: true
       listen_addr: 127.0.0.1:3026
       kube_cluster_name: local
+      # Enable service discovery for auto-registration of annotated services
+      resources:
+        - labels:
+            "*": "*"
+          kinds:
+            - service
 
     ssh_service:
       enabled: false
@@ -782,7 +810,6 @@ spec:
           - keycloak.app.suncoast.systems
           - redisui.app.suncoast.systems
           - kafka-gui.app.suncoast.systems
-          - rules-engine-gui.app.suncoast.systems
 
         paths: ["/*"]
       backends:
