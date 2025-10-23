@@ -538,8 +538,8 @@ data:
         - types: ["app"]
           namespaces: ["*"]
           # Only discover services with Teleport annotations
-          annotations:
-            "teleport.dev/name": "*"
+          labels:
+            "teleport.dev/enroll": "true"
 
     ssh_service:
       enabled: false
