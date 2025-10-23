@@ -537,8 +537,9 @@ data:
       kubernetes:
         - types: ["app"]
           namespaces: ["*"]
+          # Only discover services with Teleport annotations
           labels:
-            "*": "*"
+            "teleport.dev/name": "*"
 
     ssh_service:
       enabled: false
