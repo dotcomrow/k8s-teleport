@@ -463,7 +463,7 @@ data:
           public_addr: kafka-gui.app.suncoast.systems
 
         - name: rules-engine-gui
-          uri: http://dnm-gui.dmn.svc.cluster.local
+          uri: http://dmn-gui.dmn.svc.cluster.local
           public_addr: rules-engine-gui.app.suncoast.systems
 
         - name: pfsense
