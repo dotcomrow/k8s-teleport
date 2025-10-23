@@ -799,27 +799,7 @@ spec:
       websocket: true
       match:
         hosts:
-          - teleport.app.suncoast.systems
-          - k8s.app.suncoast.systems
-          - gateway-manager.app.suncoast.systems
-          - harbor.app.suncoast.systems
-          - harbor-dex.app.suncoast.systems
-          - vault.app.suncoast.systems
-          - vault-dex.app.suncoast.systems
-          - argocd.app.suncoast.systems
-          - argocd-dex.app.suncoast.systems
-          - policy-reporter.app.suncoast.systems
-          - linkerd.app.suncoast.systems
-          - jaeger.app.suncoast.systems
-          - pgweb.app.suncoast.systems
-          - yugabyte.app.suncoast.systems
-          - pfsense.app.suncoast.systems
-          - proxmox.app.suncoast.systems
-          - ai.app.suncoast.systems
-          - keycloak.app.suncoast.systems
-          - redisui.app.suncoast.systems
-          - kafka-gui.app.suncoast.systems
-
+          - "*.app.suncoast.systems"
         paths: ["/*"]
       backends:
         - serviceName: teleport
