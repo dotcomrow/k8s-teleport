@@ -534,6 +534,8 @@ data:
     discovery_service:
       enabled: true
       discovery_group: main-cluster
+      # Configure discovery polling intervals
+      poll_interval: 30s        # How often to do full reconciliation scans
       kubernetes:
         - types: ["app"]
           namespaces: ["*"]
