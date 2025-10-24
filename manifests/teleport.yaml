@@ -506,6 +506,7 @@ data:
       listen_addr: 0.0.0.0:3025
       proxy_protocol: off
       cluster_name: suncoast-teleport
+      proxy_listener_mode: multiplex
       authentication:
         type: github
         connector_name: new_github_connector
@@ -517,7 +518,6 @@ data:
       web_listen_addr: 0.0.0.0:3080
       public_addr: ["teleport.app.suncoast.systems:443"]
       proxy_protocol: off
-      proxy_listener_mode: multiplex
 
     kubernetes_service:
       enabled: true
