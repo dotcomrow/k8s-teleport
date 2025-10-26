@@ -464,14 +464,6 @@ data:
           uri: http://oauth2-proxy-jaeger.linkerd-jaeger.svc.cluster.local
           public_addr: jaeger.app.suncoast.systems
 
-        - name: pgweb-console
-          uri: http://oauth2-proxy-pgweb.yugabyte.svc.cluster.local:4180
-          public_addr: pgweb.app.suncoast.systems
-
-        - name: yugabyte-console
-          uri: http://oauth2-proxy-yugabyte.yugabyte.svc.cluster.local:4180
-          public_addr: yugabyte.app.suncoast.systems
-
         - name: openwebui-console
           uri: http://open-webui.ollama.svc.cluster.local
           public_addr: ai.app.suncoast.systems
