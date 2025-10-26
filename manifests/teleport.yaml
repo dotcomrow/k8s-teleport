@@ -476,10 +476,6 @@ data:
           uri: http://open-webui.ollama.svc.cluster.local
           public_addr: ai.app.suncoast.systems
 
-        - name: keycloak
-          uri: http://keycloak.keycloak.svc.cluster.local:8080
-          public_addr: keycloak.app.suncoast.systems
-
         - name: pfsense
           uri: https://10.0.0.10
           public_addr: pfsense.app.suncoast.systems
