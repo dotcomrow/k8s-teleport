@@ -407,66 +407,66 @@ data:
       apps:
         - name: k8s-mgmt-console
           uri: https://rancher.cattle-system.svc.cluster.local
-          public_addr: k8s.app.suncoast.systems
+          public_addr: k8s.teleport.app.suncoast.systems
           insecure_skip_verify: true
           rewrite:
             headers:
-              - "Host: k8s.app.suncoast.systems"
-              - "Origin: https://k8s.app.suncoast.systems"
+              - "Host: k8s.teleport.app.suncoast.systems"
+              - "Origin: https://k8s.teleport.app.suncoast.systems"
 
         - name: apisix-gateway-console
           uri: http://oauth2-proxy.apisix.svc.cluster.local
-          public_addr: gateway-manager.app.suncoast.systems
+          public_addr: gateway-manager.teleport.app.suncoast.systems
 
         - name: harbor-console
           uri: https://10.0.0.10
-          public_addr: harbor.app.suncoast.systems
+          public_addr: harbor.teleport.app.suncoast.systems
           insecure_skip_verify: true
           rewrite:
             headers:
-              - "Host: harbor.app.suncoast.systems"
+              - "Host: harbor.teleport.app.suncoast.systems"
 
         - name: harbor-dex
           uri: https://10.0.0.10
-          public_addr: harbor-dex.app.suncoast.systems
+          public_addr: harbor-dex.teleport.app.suncoast.systems
           insecure_skip_verify: true
           rewrite:
             headers:
-              - "Host: harbor-dex.app.suncoast.systems"
+              - "Host: harbor-dex.teleport.app.suncoast.systems"
 
         - name: vault
           uri: http://vault.vault.svc.cluster.local:8200
-          public_addr: vault.app.suncoast.systems
+          public_addr: vault.teleport.app.suncoast.systems
           labels:
             app: vault
 
         - name: vault-dex
           uri: http://dex.vault.svc.cluster.local:5556
-          public_addr: vault-dex.app.suncoast.systems
+          public_addr: vault-dex.teleport.app.suncoast.systems
 
         - name: argocd
           uri: http://argocd-server.argocd.svc.cluster.local
-          public_addr: argocd.app.suncoast.systems
+          public_addr: argocd.teleport.app.suncoast.systems
 
         - name: argocd-dex
           uri: http://argocd-dex-server.argocd.svc.cluster.local
-          public_addr: argocd-dex.app.suncoast.systems
+          public_addr: argocd-dex.teleport.app.suncoast.systems
 
         - name: kyverno-console
           uri: http://policy-reporter-ui.policy-reporter.svc.cluster.local:8080
-          public_addr: policy-reporter.app.suncoast.systems
+          public_addr: policy-reporter.teleport.app.suncoast.systems
 
         - name: linkerd-console
           uri: http://oauth2-proxy.linkerd-viz.svc.cluster.local
-          public_addr: linkerd.app.suncoast.systems
+          public_addr: linkerd.teleport.app.suncoast.systems
 
         - name: jaeger-console
           uri: http://oauth2-proxy-jaeger.linkerd-jaeger.svc.cluster.local
-          public_addr: jaeger.app.suncoast.systems
+          public_addr: jaeger.teleport.app.suncoast.systems
 
         - name: pfsense
           uri: https://10.0.0.10
-          public_addr: pfsense.app.suncoast.systems
+          public_addr: pfsense.teleport.app.suncoast.systems
           insecure_skip_verify: true
           rewrite:
             headers:
@@ -474,7 +474,7 @@ data:
 
         - name: proxmox
           uri: https://10.0.0.10
-          public_addr: proxmox.app.suncoast.systems
+          public_addr: proxmox.teleport.app.suncoast.systems
           insecure_skip_verify: true
           rewrite:
             headers:
@@ -778,7 +778,7 @@ spec:
       websocket: true
       match:
         hosts:
-          - "*.app.suncoast.systems"
+          - "*.teleport.app.suncoast.systems"
         paths: ["/*"]
       backends:
         - serviceName: teleport
