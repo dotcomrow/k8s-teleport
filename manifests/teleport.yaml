@@ -779,6 +779,7 @@ spec:
       match:
         hosts:
           - "*.teleport.app.suncoast.systems"
+          - "teleport.app.suncoast.systems"
         paths: ["/*"]
       backends:
         - serviceName: teleport
