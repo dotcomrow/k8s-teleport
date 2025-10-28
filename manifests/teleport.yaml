@@ -414,10 +414,6 @@ data:
               - "Host: k8s.teleport.app.suncoast.systems"
               - "Origin: https://k8s.teleport.app.suncoast.systems"
 
-        - name: apisix-gateway-console
-          uri: http://oauth2-proxy.apisix.svc.cluster.local
-          public_addr: gateway-manager.teleport.app.suncoast.systems
-
         - name: harbor-console
           uri: https://10.0.0.10
           public_addr: harbor.teleport.app.suncoast.systems
@@ -433,36 +429,6 @@ data:
           rewrite:
             headers:
               - "Host: harbor-dex.teleport.app.suncoast.systems"
-
-        - name: vault
-          uri: http://vault.vault.svc.cluster.local:8200
-          public_addr: vault.teleport.app.suncoast.systems
-          labels:
-            app: vault
-
-        - name: vault-dex
-          uri: http://dex.vault.svc.cluster.local:5556
-          public_addr: vault-dex.teleport.app.suncoast.systems
-
-        - name: argocd
-          uri: http://argocd-server.argocd.svc.cluster.local
-          public_addr: argocd.teleport.app.suncoast.systems
-
-        - name: argocd-dex
-          uri: http://argocd-dex-server.argocd.svc.cluster.local
-          public_addr: argocd-dex.teleport.app.suncoast.systems
-
-        - name: kyverno-console
-          uri: http://policy-reporter-ui.policy-reporter.svc.cluster.local:8080
-          public_addr: policy-reporter.teleport.app.suncoast.systems
-
-        - name: linkerd-console
-          uri: http://oauth2-proxy.linkerd-viz.svc.cluster.local
-          public_addr: linkerd.teleport.app.suncoast.systems
-
-        - name: jaeger-console
-          uri: http://oauth2-proxy-jaeger.linkerd-jaeger.svc.cluster.local
-          public_addr: jaeger.teleport.app.suncoast.systems
 
         - name: pfsense
           uri: https://10.0.0.10
