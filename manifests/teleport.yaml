@@ -12,6 +12,7 @@ metadata:
     linkerd.io/inject: disabled
     field.cattle.io/projectId: local:infrastructure
     scheduler.alpha.kubernetes.io/node-selector: "dedicated=srvr-node"
+    argocd.argoproj.io/sync-wave: "-3"
 ---
 apiVersion: v1
 kind: ServiceAccount
