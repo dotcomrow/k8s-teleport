@@ -380,6 +380,84 @@ spec:
             storage: 10Gi
 ---
 # ============================
+# Legacy iDRAC TLS bridge (HAProxy)
+# Allows Teleport to talk HTTP in-cluster while HAProxy speaks TLS1.0 to iDRAC
+# ============================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: idrac-bridge-haproxy
+  namespace: teleport
+data:
+  haproxy.cfg: |
+    global
+      log stdout format raw local0
+      maxconn 128
+
+    defaults
+      log global
+      mode http
+      option httplog
+      option http-server-close
+      timeout connect 5s
+      timeout client 60s
+      timeout server 60s
+
+    frontend fe_idrac
+      bind *:8080
+      default_backend be_idrac
+
+    backend be_idrac
+      # Speak to legacy iDRAC with TLS1.0+ and ignore its self-signed cert.
+      http-request set-header Host 10.0.2.10
+      server idrac 10.0.2.10:443 ssl verify none ssl-min-ver TLSv1.0
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idrac-bridge
+  namespace: teleport
+  labels:
+    app: idrac-bridge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: idrac-bridge
+  template:
+    metadata:
+      labels:
+        app: idrac-bridge
+    spec:
+      containers:
+        - name: haproxy
+          image: haproxy:2.8
+          args: ["-f", "/usr/local/etc/haproxy/haproxy.cfg", "-db"]
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: config
+              mountPath: /usr/local/etc/haproxy
+      volumes:
+        - name: config
+          configMap:
+            name: idrac-bridge-haproxy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: idrac-bridge
+  namespace: teleport
+spec:
+  selector:
+    app: idrac-bridge
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+# ============================
 # Teleport config (ConfigMap)
 # ============================
 apiVersion: v1
@@ -447,6 +525,13 @@ data:
           rewrite:
             headers:
               - "Host: proxmox.suncoast.systems"
+
+        - name: idrac
+          uri: http://idrac-bridge.teleport.svc.cluster.local:8080
+          public_addr: idrac.teleport.app.suncoast.systems
+          rewrite:
+            headers:
+              - "Host: 10.0.2.10"
 
       resources:
         - labels:
