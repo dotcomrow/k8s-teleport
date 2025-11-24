@@ -425,12 +425,15 @@ data:
 
           # Rewrite absolute redirects/cookie domains to stay on Teleport.
           proxy_redirect https://10.0.2.10/ https://idrac.teleport.app.suncoast.systems/;
+          proxy_redirect https://10.0.2.10:443/ https://idrac.teleport.app.suncoast.systems/;
           proxy_cookie_domain 10.0.2.10 idrac.teleport.app.suncoast.systems;
 
           # Rewrite absolute URLs in HTML/CSS/JS responses.
           sub_filter_once off;
           # Include JNLP so the Virtual Console launcher points back through Teleport/HAProxy.
           sub_filter_types text/html text/css application/javascript application/json text/xml application/xml application/x-java-jnlp-file;
+          sub_filter "https://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
+          sub_filter "http://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
           sub_filter "https://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
           sub_filter "http://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
           sub_filter "ip=10.0.2.10" "ip=idrac.teleport.app.suncoast.systems";
