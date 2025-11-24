@@ -391,7 +391,7 @@ metadata:
 data:
   nginx.conf: |
     worker_processes  1;
-    events { worker_connections  1024; }
+    events { worker_connections  2048; }
     http {
       log_format main '$remote_addr - $remote_user [$time_local] "$request" '
                       '$status $body_bytes_sent "$http_referer" '
@@ -412,6 +412,9 @@ data:
           proxy_ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
           proxy_ssl_ciphers ALL:@SECLEVEL=0;
           proxy_ssl_verify off;
+          proxy_ssl_session_reuse off;
+          proxy_http_version 1.0;
+          proxy_set_header Connection close;
           proxy_set_header Host $upstream;
           proxy_set_header X-Forwarded-Proto https;
           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -428,9 +431,9 @@ data:
           proxy_set_header Accept-Encoding "";
 
           proxy_buffering off;
-          proxy_connect_timeout 5s;
-          proxy_read_timeout 60s;
-          proxy_send_timeout 60s;
+          proxy_connect_timeout 15s;
+          proxy_read_timeout 180s;
+          proxy_send_timeout 180s;
         }
       }
     }
