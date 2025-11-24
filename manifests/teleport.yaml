@@ -410,7 +410,8 @@ data:
     backend be_idrac
       # Speak to legacy iDRAC with TLS1.0+ and ignore its self-signed cert.
       http-request set-header Host 10.0.2.10
-      server idrac 10.0.2.10:443 ssl verify none ssl-min-ver TLSv1.0
+      # Allow weak ciphers / TLS1.0 for the legacy device.
+      server idrac 10.0.2.10:443 ssl verify none ssl-min-ver TLSv1.0 ciphers ALL:@SECLEVEL=0
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -439,6 +440,9 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /usr/local/etc/haproxy
+        - name: diag
+          image: curlimages/curl:8.6.0
+          command: ["sleep","infinity"]
       volumes:
         - name: config
           configMap:
