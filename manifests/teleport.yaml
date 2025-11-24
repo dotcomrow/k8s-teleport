@@ -406,30 +406,32 @@ data:
         resolver 1.1.1.1 valid=300s ipv6=off;
         set $upstream 10.0.2.10;
 
-        proxy_pass https://$upstream$request_uri;
-        proxy_ssl_server_name off;
-        proxy_ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
-        proxy_ssl_ciphers ALL:@SECLEVEL=0;
-        proxy_ssl_verify off;
-        proxy_set_header Host $upstream;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        location / {
+          proxy_pass https://$upstream;
+          proxy_ssl_server_name off;
+          proxy_ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+          proxy_ssl_ciphers ALL:@SECLEVEL=0;
+          proxy_ssl_verify off;
+          proxy_set_header Host $upstream;
+          proxy_set_header X-Forwarded-Proto https;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
-        # Rewrite absolute redirects/cookies/domains to stay on Teleport.
-        proxy_redirect https://10.0.2.10/ https://idrac.teleport.app.suncoast.systems/;
-        proxy_cookie_domain 10.0.2.10 idrac.teleport.app.suncoast.systems;
+          # Rewrite absolute redirects/cookie domains to stay on Teleport.
+          proxy_redirect https://10.0.2.10/ https://idrac.teleport.app.suncoast.systems/;
+          proxy_cookie_domain 10.0.2.10 idrac.teleport.app.suncoast.systems;
 
-        # Rewrite absolute URLs in HTML/CSS/JS responses.
-        sub_filter_once off;
-        sub_filter_types text/html text/css application/javascript application/json text/xml;
-        sub_filter "https://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
-        sub_filter "http://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
-        proxy_set_header Accept-Encoding "";
+          # Rewrite absolute URLs in HTML/CSS/JS responses.
+          sub_filter_once off;
+          sub_filter_types text/html text/css application/javascript application/json text/xml;
+          sub_filter "https://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
+          sub_filter "http://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
+          proxy_set_header Accept-Encoding "";
 
-        proxy_buffering off;
-        proxy_connect_timeout 5s;
-        proxy_read_timeout 60s;
-        proxy_send_timeout 60s;
+          proxy_buffering off;
+          proxy_connect_timeout 5s;
+          proxy_read_timeout 60s;
+          proxy_send_timeout 60s;
+        }
       }
     }
 ---
