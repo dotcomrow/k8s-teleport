@@ -380,8 +380,8 @@ spec:
             storage: 10Gi
 ---
 # ============================
-# Legacy iDRAC TLS bridge (HAProxy)
-# Allows Teleport to talk HTTP in-cluster while HAProxy speaks TLS1.0 to iDRAC
+# Legacy iDRAC TLS bridge (Nginx)
+# Allows Teleport to talk HTTP in-cluster while Nginx speaks TLS1.0 to iDRAC and rewrites absolute URLs
 # ============================
 apiVersion: v1
 kind: ConfigMap
@@ -389,32 +389,49 @@ metadata:
   name: idrac-bridge-haproxy
   namespace: teleport
 data:
-  haproxy.cfg: |
-    global
-      log stdout format raw local0
-      maxconn 128
+  nginx.conf: |
+    worker_processes  1;
+    events { worker_connections  1024; }
+    http {
+      log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+      access_log /dev/stdout main;
+      error_log  /dev/stderr notice;
 
-    defaults
-      log global
-      mode http
-      option httplog
-      option http-server-close
-      timeout connect 5s
-      timeout client 60s
-      timeout server 60s
+      server {
+        listen 8080;
 
-    frontend fe_idrac
-      bind *:8080
-      default_backend be_idrac
+        # Talk to legacy iDRAC over TLS1.0 and ignore its cert.
+        resolver 1.1.1.1 valid=300s ipv6=off;
+        set $upstream 10.0.2.10;
 
-    backend be_idrac
-      # Speak to legacy iDRAC with TLS1.0+ and ignore its self-signed cert.
-      http-request set-header Host 10.0.2.10
-      # Rewrite absolute redirects/cookie domains back to the Teleport public address.
-      http-response replace-header Location ^https?://10\.0\.2\.10(?::[0-9]+)?(/.*)?$ https://idrac.teleport.app.suncoast.systems\1
-      http-response replace-value Set-Cookie Domain=10.0.2.10 Domain=idrac.teleport.app.suncoast.systems
-      # Allow weak ciphers / TLS1.0 for the legacy device.
-      server idrac 10.0.2.10:443 ssl verify none ssl-min-ver TLSv1.0 ciphers ALL:@SECLEVEL=0
+        proxy_pass https://$upstream$request_uri;
+        proxy_ssl_server_name off;
+        proxy_ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+        proxy_ssl_ciphers ALL:@SECLEVEL=0;
+        proxy_ssl_verify off;
+        proxy_set_header Host $upstream;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # Rewrite absolute redirects/cookies/domains to stay on Teleport.
+        proxy_redirect https://10.0.2.10/ https://idrac.teleport.app.suncoast.systems/;
+        proxy_cookie_domain 10.0.2.10 idrac.teleport.app.suncoast.systems;
+
+        # Rewrite absolute URLs in HTML/CSS/JS responses.
+        sub_filter_once off;
+        sub_filter_types text/html text/css application/javascript application/json text/xml;
+        sub_filter "https://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
+        sub_filter "http://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
+        proxy_set_header Accept-Encoding "";
+
+        proxy_buffering off;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+      }
+    }
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -434,15 +451,16 @@ spec:
         app: idrac-bridge
     spec:
       containers:
-        - name: haproxy
-          image: haproxy:2.8
-          args: ["-f", "/usr/local/etc/haproxy/haproxy.cfg", "-db"]
+        - name: nginx
+          image: nginx:1.25-alpine
+          args: ["nginx","-g","daemon off;","-c","/etc/nginx/nginx.conf"]
           ports:
             - containerPort: 8080
               name: http
           volumeMounts:
             - name: config
-              mountPath: /usr/local/etc/haproxy
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
         - name: diag
           image: curlimages/curl:8.6.0
           command: ["sleep","infinity"]
