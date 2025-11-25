@@ -543,6 +543,15 @@ data:
     accept = 0.0.0.0:5900
     connect = 10.0.2.10:5900
     sni = 10.0.2.10
+  openssl.cnf: |
+    openssl_conf = default_conf
+    [default_conf]
+    ssl_conf = ssl_sect
+    [ssl_sect]
+    system_default = system_default_sect
+    [system_default_sect]
+    MinProtocol = TLSv1
+    CipherString = DEFAULT:@SECLEVEL=0
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -667,7 +676,7 @@ spec:
               apt-get update
               DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends stunnel4 ca-certificates
               rm -rf /var/lib/apt/lists/*
-              stunnel /etc/stunnel/stunnel.conf
+              OPENSSL_CONF=/etc/stunnel/openssl.cnf stunnel /etc/stunnel/stunnel.conf
           ports:
             - containerPort: 5900
               name: kvm
@@ -675,12 +684,22 @@ spec:
             - name: config
               mountPath: /etc/stunnel/stunnel.conf
               subPath: stunnel.conf
+            - name: config
+              mountPath: /etc/stunnel/openssl.cnf
+              subPath: openssl.cnf
           resources:
             requests: { cpu: "20m", memory: "32Mi" }
             limits:   { cpu: "200m", memory: "64Mi" }
         - name: diag
           image: alpine:3.20
           command: ["/bin/sh","-c","apk add --no-cache curl openssl busybox-extras && exec sleep infinity"]
+          env:
+            - name: OPENSSL_CONF
+              value: /etc/stunnel/openssl.cnf
+          volumeMounts:
+            - name: config
+              mountPath: /etc/stunnel/openssl.cnf
+              subPath: openssl.cnf
       volumes:
         - name: config
           configMap:
