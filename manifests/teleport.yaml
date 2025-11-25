@@ -660,7 +660,7 @@ spec:
             - name: signed-jars
               mountPath: /srv/signed
         - name: kvm-proxy
-          image: dotcomrow/kvm-proxy:1.0
+          image: dotcomrow/kvm-proxy:7a65641c8fe1f1d4c1b29ee2bf79453edf099b63
           command:
             - /bin/sh
             - -c
