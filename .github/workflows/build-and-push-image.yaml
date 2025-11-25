@@ -1,4 +1,4 @@
-name: CI
+name: build-and-push-image
 
 on:
   workflow_dispatch:
