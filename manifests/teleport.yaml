@@ -441,6 +441,35 @@ data:
         # Talk to legacy iDRAC over TLS1.0 and ignore its cert.
         resolver 1.1.1.1 valid=300s ipv6=off;
 
+        # Force simple filename for JNLP downloads.
+        location ~* \.jnlp$ {
+          add_header Content-Disposition 'attachment; filename="idrac.jnlp"' always;
+          proxy_pass https://idrac_upstream;
+          proxy_ssl_server_name off;
+          proxy_ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+          proxy_ssl_ciphers ALL:@SECLEVEL=0;
+          proxy_ssl_verify off;
+          proxy_ssl_session_reuse on;
+          proxy_http_version 1.1;
+          proxy_set_header Connection "";
+          proxy_set_header Host 10.0.2.10;
+          proxy_set_header X-Forwarded-Proto https;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+          proxy_redirect https://10.0.2.10/ https://idrac.teleport.app.suncoast.systems/;
+          proxy_redirect https://10.0.2.10:443/ https://idrac.teleport.app.suncoast.systems/;
+          proxy_cookie_domain 10.0.2.10 idrac.teleport.app.suncoast.systems;
+
+          sub_filter_once off;
+          sub_filter_types *;
+          sub_filter "https://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
+          sub_filter "http://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
+          sub_filter "https://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
+          sub_filter "http://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
+          sub_filter "ip=10.0.2.10" "ip=idrac.teleport.app.suncoast.systems";
+          proxy_set_header Accept-Encoding "";
+        }
+
         # Serve locally re-signed jars first; fall back to backend if missing.
         location /software/ {
           alias /srv/signed/;
@@ -613,7 +642,7 @@ spec:
           command: ["socat"]
           args:
             - "TCP4-LISTEN:5900,fork,reuseaddr,keepalive"
-            - "OPENSSL:10.0.2.10:5900,verify=0,tls1"
+            - "OPENSSL:10.0.2.10:5900,verify=0,openssl-min-proto-version=TLS1.0,openssl-max-proto-version=TLS1.0"
           ports:
             - containerPort: 5900
               name: kvm
