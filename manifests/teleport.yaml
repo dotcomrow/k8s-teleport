@@ -610,11 +610,10 @@ spec:
               mountPath: /srv/signed
         - name: kvm-proxy
           image: alpine/socat
+          command: ["socat"]
           args:
-            - sh
-            - -c
-            - |
-              socat TCP4-LISTEN:5900,fork,reuseaddr,keepalive TCP4:10.0.2.10:5900
+            - "TCP4-LISTEN:5900,fork,reuseaddr,keepalive"
+            - "OPENSSL:10.0.2.10:5900,verify=0,method=TLS1"
           ports:
             - containerPort: 5900
               name: kvm
