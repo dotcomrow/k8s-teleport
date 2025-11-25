@@ -541,14 +541,10 @@ data:
     accept = 0.0.0.0:5900
     connect = 10.0.2.10:5900
   openssl.cnf: |
-    openssl_conf = default_conf
-    [default_conf]
-    ssl_conf = ssl_sect
-    [ssl_sect]
-    system_default = system_default_sect
+    # Minimal config for legacy TLS1.0/weak ciphers on old OpenSSL
     [system_default_sect]
     MinProtocol = TLSv1
-    CipherString = DEFAULT:@SECLEVEL=0
+    CipherString = DEFAULT
 ---
 apiVersion: apps/v1
 kind: Deployment
