@@ -891,6 +891,30 @@ spec:
             regex_uri: ["^/pgweb(/.*)?$", "/$1"]
 
 ---
+# Direct path routing for static iDRAC assets (bypass Teleport auth for JNLP/JAR downloads)
+apiVersion: apisix.apache.org/v2
+kind: ApisixRoute
+metadata:
+  name: idrac-files-route
+  namespace: teleport
+  annotations:
+    apisix.apache.org/priority: "10"  # take precedence over wildcard Teleport route
+spec:
+  ingressClassName: apisix
+  http:
+    - name: idrac-files
+      match:
+        hosts:
+          - "idrac.teleport.app.suncoast.systems"
+        paths:
+          - /software/*
+          - /images/*
+          - /help/*
+      backends:
+        - serviceName: idrac-bridge
+          servicePort: 8080
+
+---
 # ============================
 # Teleport bootstrap resources
 # ============================
