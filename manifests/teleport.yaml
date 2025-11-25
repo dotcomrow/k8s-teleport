@@ -444,7 +444,9 @@ data:
         # Force simple filename for JNLP downloads.
         location ~* \.jnlp$ {
           add_header Content-Disposition 'attachment; filename="idrac.jnlp"' always;
+          add_header Content-Type application/x-java-jnlp-file always;
           proxy_hide_header Content-Disposition;
+          proxy_hide_header Content-Type;
           proxy_pass https://idrac_upstream;
           proxy_ssl_server_name off;
           proxy_ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
@@ -656,20 +658,14 @@ spec:
             - name: signed-jars
               mountPath: /srv/signed
         - name: kvm-proxy
-          image: alpine:3.20
-          command:
-            - sh
-            - -c
-            - |
-              apk add --no-cache stunnel
-              stunnel /etc/stunnel/stunnel.conf
+          image: alpine/socat
+          command: ["socat"]
+          args:
+            - "TCP4-LISTEN:5900,fork,reuseaddr,keepalive"
+            - "TCP4:10.0.2.10:5900"
           ports:
             - containerPort: 5900
               name: kvm
-          volumeMounts:
-            - name: config
-              mountPath: /etc/stunnel/stunnel.conf
-              subPath: stunnel.conf
           resources:
             requests: { cpu: "20m", memory: "32Mi" }
             limits:   { cpu: "200m", memory: "64Mi" }
