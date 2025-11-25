@@ -1,0 +1,37 @@
+FROM debian:bookworm-slim AS build
+
+ARG OPENSSL_VER=1.0.2u
+ARG STUNNEL_VER=5.46
+WORKDIR /tmp/build
+
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      build-essential wget ca-certificates perl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Build OpenSSL 1.0.2 with SSLv3 enabled (legacy, insecure)
+RUN wget https://www.openssl.org/source/old/1.0.2/openssl-${OPENSSL_VER}.tar.gz && \
+    tar xzf openssl-${OPENSSL_VER}.tar.gz && \
+    cd openssl-${OPENSSL_VER} && \
+    ./config enable-ssl3 enable-ssl3-method no-shared --prefix=/opt/openssl-${OPENSSL_VER} && \
+    make -j"$(nproc)" && make install_sw
+
+# Build stunnel against that OpenSSL
+RUN wget https://www.stunnel.org/archive/5.x/stunnel-${STUNNEL_VER}.tar.gz && \
+    tar xzf stunnel-${STUNNEL_VER}.tar.gz && \
+    cd stunnel-${STUNNEL_VER} && \
+    ./configure --with-ssl=/opt/openssl-${OPENSSL_VER} --prefix=/opt/stunnel && \
+    make -j"$(nproc)" && make install
+
+# ---------- Runtime ----------
+FROM debian:bookworm-slim
+ENV LD_LIBRARY_PATH=/opt/openssl-1.0.2u/lib \
+    PATH=/opt/stunnel/bin:$PATH
+COPY --from=build /opt/openssl-1.0.2u /opt/openssl-1.0.2u
+COPY --from=build /opt/stunnel /opt/stunnel
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+ENTRYPOINT ["stunnel"]
+CMD ["/etc/stunnel/stunnel.conf"]

@@ -533,7 +533,7 @@ data:
     output = /dev/stdout
     client = yes
     verify = 0
-    sslVersion = TLSv1
+    sslVersion = all
     ciphers = ALL
     TIMEOUTconnect = 10
 
@@ -660,13 +660,12 @@ spec:
             - name: signed-jars
               mountPath: /srv/signed
         - name: kvm-proxy
-          image: alpine:3.8
+          image: dotcomrow/kvm-proxy:1.0
           command:
             - /bin/sh
             - -c
             - |
               set -e
-              apk add --no-cache stunnel ca-certificates
               OPENSSL_CONF=/etc/stunnel/openssl.cnf stunnel /etc/stunnel/stunnel.conf
           ports:
             - containerPort: 5900
