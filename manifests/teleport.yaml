@@ -531,16 +531,18 @@ spec:
           command: ["/bin/sh","-c"]
           args:
             - |
-              set -eu
+              set -euo pipefail
               tmp="/tmp/jars"
               out="/signed"
               mkdir -p "$tmp" "$out" /work
 
               jars="avctKVM.jar avctKVMIOWin32.jar avctVMWin32.jar avctKVMIOWin64.jar avctVMWin64.jar avctKVMIOLinux32.jar avctVMLinux32.jar avctKVMIOLinux64.jar avctVMLinux64.jar"
 
+              CURL_FLAGS="--insecure --tlsv1 --ciphers ALL:@SECLEVEL=0 -L"
+
               for j in $jars; do
                 echo "fetching $j"
-                if ! curl -fsSL "${UPSTREAM}/software/${j}" -o "${tmp}/${j}"; then
+                if ! curl -fsS $CURL_FLAGS "${UPSTREAM}/software/${j}" -o "${tmp}/${j}"; then
                   echo "warn: failed to fetch ${j} from upstream"; continue
                 fi
               done
@@ -556,18 +558,8 @@ spec:
               create_secret_if_needed() {
                 jks_b64="$(base64 -w0 "$ks")"
                 pass_b64="$(printf '%s' "$storepass" | base64 -w0)"
-                cat >/tmp/idrac-secret.json <<EOF
-                {
-                  "apiVersion": "v1",
-                  "kind": "Secret",
-                  "metadata": { "name": "${secret_name}", "namespace": "${ns}" },
-                  "type": "Opaque",
-                  "data": {
-                    "idrac.jks": "${jks_b64}",
-                    "storepass": "${pass_b64}"
-                  }
-                }
-                EOF
+                printf '{"apiVersion":"v1","kind":"Secret","metadata":{"name":"%s","namespace":"%s"},"type":"Opaque","data":{"idrac.jks":"%s","storepass":"%s"}}' \
+                  "${secret_name}" "${ns}" "${jks_b64}" "${pass_b64}" >/tmp/idrac-secret.json
                 if curl -fsS --cacert "$cacert" -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
                     -X POST "$api/api/v1/namespaces/${ns}/secrets" -d @/tmp/idrac-secret.json; then
                   echo "created keystore secret ${secret_name}"
