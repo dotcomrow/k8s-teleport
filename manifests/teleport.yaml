@@ -474,8 +474,8 @@ data:
 
           # Rewrite absolute URLs in HTML/CSS/JS responses.
           sub_filter_once off;
-          # Include JNLP so the Virtual Console launcher points back through Teleport/HAProxy.
-          sub_filter_types text/html text/css application/javascript application/json text/xml application/xml application/x-java-jnlp-file;
+          # Filter all MIME types so JNLP and static assets get rewritten (avoid duplicate mime warnings).
+          sub_filter_types *;
           sub_filter "https://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
           sub_filter "http://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
           sub_filter "https://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
