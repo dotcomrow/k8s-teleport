@@ -533,7 +533,8 @@ data:
     output = /dev/stdout
     client = yes
     verify = 0
-    sslVersion = all
+    sslVersion = SSLv3
+    options = -NO_SSLv3
     ciphers = ALL
     TIMEOUTconnect = 10
 
@@ -543,8 +544,8 @@ data:
   openssl.cnf: |
     # Minimal config for legacy TLS1.0/weak ciphers on old OpenSSL
     [system_default_sect]
-    MinProtocol = TLSv1
-    CipherString = DEFAULT
+    MinProtocol = SSLv3
+    CipherString = DEFAULT:@SECLEVEL=0
 ---
 apiVersion: apps/v1
 kind: Deployment
