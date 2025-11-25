@@ -687,7 +687,7 @@ spec:
             limits:   { cpu: "200m", memory: "64Mi" }
         - name: diag
           image: alpine:3.8
-          command: ["/bin/sh","-c","apk add --no-cache curl openssl busybox-extras && exec sleep infinity"]
+          command: ["/bin/sh","-c","apk add --no-cache curl openssl busybox-extras && exec sleep 99999999"]
           env:
             - name: OPENSSL_CONF
               value: /etc/stunnel/openssl.cnf
