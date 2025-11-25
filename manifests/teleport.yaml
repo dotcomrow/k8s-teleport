@@ -658,14 +658,23 @@ spec:
             - name: signed-jars
               mountPath: /srv/signed
         - name: kvm-proxy
-          image: alpine/socat
-          command: ["socat","-d","-d"]
-          args:
-            - "TCP4-LISTEN:5900,fork,reuseaddr,keepalive"
-            - "TCP4:10.0.2.10:5900"
+          image: debian:bullseye-slim
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              apt-get update
+              DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends stunnel4 ca-certificates
+              rm -rf /var/lib/apt/lists/*
+              stunnel /etc/stunnel/stunnel.conf
           ports:
             - containerPort: 5900
               name: kvm
+          volumeMounts:
+            - name: config
+              mountPath: /etc/stunnel/stunnel.conf
+              subPath: stunnel.conf
           resources:
             requests: { cpu: "20m", memory: "32Mi" }
             limits:   { cpu: "200m", memory: "64Mi" }
