@@ -533,7 +533,7 @@ data:
     output = /dev/stdout
     client = yes
     verify = 0
-    sslVersion = all
+    sslVersion = SSLv3
     options = NO_SSLv2
     ciphers = ALL:@SECLEVEL=0
     TIMEOUTconnect = 10
@@ -541,7 +541,6 @@ data:
     [kvm]
     accept = 0.0.0.0:5900
     connect = 10.0.2.10:5900
-    sni = 10.0.2.10
   openssl.cnf: |
     openssl_conf = default_conf
     [default_conf]
@@ -666,15 +665,13 @@ spec:
             - name: signed-jars
               mountPath: /srv/signed
         - name: kvm-proxy
-          image: debian:bullseye-slim
+          image: alpine:3.8
           command:
             - /bin/sh
             - -c
             - |
               set -e
-              apt-get update
-              DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends stunnel4 ca-certificates
-              rm -rf /var/lib/apt/lists/*
+              apk add --no-cache stunnel ca-certificates
               OPENSSL_CONF=/etc/stunnel/openssl.cnf stunnel /etc/stunnel/stunnel.conf
           ports:
             - containerPort: 5900
@@ -690,7 +687,7 @@ spec:
             requests: { cpu: "20m", memory: "32Mi" }
             limits:   { cpu: "200m", memory: "64Mi" }
         - name: diag
-          image: alpine:3.20
+          image: alpine:3.8
           command: ["/bin/sh","-c","apk add --no-cache curl openssl busybox-extras && exec sleep infinity"]
           env:
             - name: OPENSSL_CONF
