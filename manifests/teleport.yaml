@@ -608,6 +608,20 @@ spec:
               subPath: nginx.conf
             - name: signed-jars
               mountPath: /srv/signed
+        - name: kvm-proxy
+          image: alpine/socat
+          args:
+            - sh
+            - -c
+            - |
+              socat TCP-LISTEN:5900,fork,reuseaddr,keepalive \
+                    OPENSSL:10.0.2.10:5900,verify=0,method=TLS1
+          ports:
+            - containerPort: 5900
+              name: kvm
+          resources:
+            requests: { cpu: "20m", memory: "32Mi" }
+            limits:   { cpu: "200m", memory: "64Mi" }
         - name: diag
           image: curlimages/curl:8.6.0
           command: ["sleep","infinity"]
@@ -636,6 +650,25 @@ spec:
     - name: http
       port: 8080
       targetPort: http
+    - name: kvm
+      port: 5900
+      targetPort: kvm
+---
+# Optional external exposure for KVM TCP (5900) via NodePort/LB
+apiVersion: v1
+kind: Service
+metadata:
+  name: idrac-bridge-kvm
+  namespace: teleport
+spec:
+  type: LoadBalancer   # change to NodePort if preferred
+  loadBalancerIP: 10.0.0.150
+  selector:
+    app: idrac-bridge
+  ports:
+    - name: kvm
+      port: 5900
+      targetPort: kvm
 ---
 # ============================
 # Teleport config (ConfigMap)
