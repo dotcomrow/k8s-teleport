@@ -441,8 +441,8 @@ data:
         # Talk to legacy iDRAC over TLS1.0 and ignore its cert.
         resolver 1.1.1.1 valid=300s ipv6=off;
 
-        # Force simple filename for JNLP downloads.
-        location ~* \.jnlp(?:$|\?) {
+        # Force simple filename for JNLP downloads (handles extra path suffix like viewer.jnlp(...)).
+        location ~* \.jnlp.* {
           add_header Content-Disposition 'attachment; filename="idrac.jnlp"' always;
           add_header Content-Type application/x-java-jnlp-file always;
           proxy_hide_header Content-Disposition;
@@ -670,8 +670,8 @@ spec:
             requests: { cpu: "20m", memory: "32Mi" }
             limits:   { cpu: "200m", memory: "64Mi" }
         - name: diag
-          image: curlimages/curl:8.6.0
-          command: ["sleep","infinity"]
+          image: alpine:3.20
+          command: ["/bin/sh","-c","apk add --no-cache curl openssl busybox-extras && exec sleep infinity"]
       volumes:
         - name: config
           configMap:
