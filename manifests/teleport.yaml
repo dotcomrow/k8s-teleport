@@ -534,7 +534,7 @@ data:
     client = yes
     verify = 0
     sslVersion = TLSv1
-    ciphers = ALL:@SECLEVEL=0
+    ciphers = ALL
     TIMEOUTconnect = 10
 
     [kvm]
