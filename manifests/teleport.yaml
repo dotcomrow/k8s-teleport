@@ -545,7 +545,7 @@ data:
     # Minimal config for legacy TLS1.0/weak ciphers on old OpenSSL
     [system_default_sect]
     MinProtocol = SSLv3
-    CipherString = DEFAULT:@SECLEVEL=0
+    CipherString = ALL
 ---
 apiVersion: apps/v1
 kind: Deployment
