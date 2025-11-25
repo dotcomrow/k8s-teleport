@@ -668,17 +668,15 @@ spec:
             - -c
             - |
               set -e
-              OPENSSL_CONF=/etc/stunnel/openssl.cnf stunnel /etc/stunnel/stunnel.conf
+              apt-get update
+              DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends socat
+              rm -rf /var/lib/apt/lists/*
+
+              # Plain TCP pass-through for KVM (no TLS termination)
+              exec socat TCP-LISTEN:5900,reuseaddr,fork TCP:10.0.2.10:5900
           ports:
             - containerPort: 5900
               name: kvm
-          volumeMounts:
-            - name: config
-              mountPath: /etc/stunnel/stunnel.conf
-              subPath: stunnel.conf
-            - name: config
-              mountPath: /etc/stunnel/openssl.cnf
-              subPath: openssl.cnf
           resources:
             requests: { cpu: "20m", memory: "32Mi" }
             limits:   { cpu: "200m", memory: "64Mi" }
