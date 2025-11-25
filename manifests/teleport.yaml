@@ -530,7 +530,7 @@ data:
     debug = 4
     output = /dev/stdout
     client = yes
-    verifyChain = no
+    verify = 0
     sslVersion = TLSv1
     options = NO_SSLv2
     options = NO_SSLv3
