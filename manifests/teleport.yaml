@@ -444,6 +444,7 @@ data:
         # Force simple filename for JNLP downloads.
         location ~* \.jnlp$ {
           add_header Content-Disposition 'attachment; filename="idrac.jnlp"' always;
+          proxy_hide_header Content-Disposition;
           proxy_pass https://idrac_upstream;
           proxy_ssl_server_name off;
           proxy_ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
@@ -523,6 +524,24 @@ data:
         }
       }
     }
+  stunnel.conf: |
+    pid = /var/run/stunnel.pid
+    foreground = yes
+    debug = 4
+    output = /dev/stdout
+    client = yes
+    verifyChain = no
+    sslVersion = TLSv1
+    options = NO_SSLv2
+    options = NO_SSLv3
+    options = NO_TLSv1.1
+    ciphers = ALL:@SECLEVEL=0
+    TIMEOUTconnect = 10
+
+    [kvm]
+    accept = 0.0.0.0:5900
+    connect = 10.0.2.10:5900
+    sni = 10.0.2.10
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -638,14 +657,20 @@ spec:
             - name: signed-jars
               mountPath: /srv/signed
         - name: kvm-proxy
-          image: alpine/socat
-          command: ["socat"]
-          args:
-            - "TCP4-LISTEN:5900,fork,reuseaddr,keepalive"
-            - "OPENSSL:10.0.2.10:5900,verify=0,openssl-min-proto-version=TLS1.0,openssl-max-proto-version=TLS1.0"
+          image: alpine:3.20
+          command:
+            - sh
+            - -c
+            - |
+              apk add --no-cache stunnel
+              stunnel /etc/stunnel/stunnel.conf
           ports:
             - containerPort: 5900
               name: kvm
+          volumeMounts:
+            - name: config
+              mountPath: /etc/stunnel/stunnel.conf
+              subPath: stunnel.conf
           resources:
             requests: { cpu: "20m", memory: "32Mi" }
             limits:   { cpu: "200m", memory: "64Mi" }
