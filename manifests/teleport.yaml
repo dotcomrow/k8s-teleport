@@ -613,7 +613,7 @@ spec:
           command: ["socat"]
           args:
             - "TCP4-LISTEN:5900,fork,reuseaddr,keepalive"
-            - "OPENSSL:10.0.2.10:5900,verify=0,method=TLS1"
+            - "OPENSSL:10.0.2.10:5900,verify=0,tls1"
           ports:
             - containerPort: 5900
               name: kvm
