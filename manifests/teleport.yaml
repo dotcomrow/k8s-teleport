@@ -533,7 +533,8 @@ data:
     output = /dev/stdout
     client = yes
     verify = 0
-    sslVersion = SSLv3
+    # Allow TLS1.x/1.2 while still permitting SSLv3 for the legacy target
+    sslVersion = all
     options = -NO_SSLv3
     ciphers = ALL
     TIMEOUTconnect = 10
