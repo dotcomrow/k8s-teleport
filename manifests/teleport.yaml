@@ -531,7 +531,7 @@ spec:
           command: ["/bin/sh","-c"]
           args:
             - |
-              set -euo pipefail
+              set -eu
               tmp="/tmp/jars"
               out="/signed"
               mkdir -p "$tmp" "$out" /work
