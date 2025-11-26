@@ -695,7 +695,8 @@ spec:
               client = yes
               accept = 127.0.0.1:15000
               connect = 10.0.2.10:5900
-              sslVersion = SSLv3
+              # Allow TLS1.x or SSLv3 as the iDRAC supports
+              sslVersion = all
               options = NO_SSLv2
               TIMEOUTconnect = 10
               CONF
