@@ -686,7 +686,8 @@ spec:
               connect = 127.0.0.1:15000
               cert = /tmp/stunnel/cert.pem
               key  = /tmp/stunnel/key.pem
-              sslVersion = TLSv1.2
+              # Accept modern TLS from clients (allow TLS1.x)
+              sslVersion = all
               options = NO_SSLv2
               ciphers = HIGH:!aNULL:!eNULL
 
