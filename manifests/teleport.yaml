@@ -668,13 +668,40 @@ spec:
             - -c
             - |
               set -e
-              apt-get update
-              DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends socat
-              rm -rf /var/lib/apt/lists/*
+              # Generate a throwaway cert for the modern-facing listener
+              mkdir -p /tmp/stunnel
+              openssl req -new -x509 -nodes -subj "/CN=idrac-bridge" -days 3650 \
+                -out /tmp/stunnel/cert.pem -keyout /tmp/stunnel/key.pem >/dev/null 2>&1
 
-              echo "starting kvm TCP passthrough on 0.0.0.0:5900 -> 10.0.2.10:5900"
-              # Use unbuffered stdout/stderr and debug logs so we can see activity
-              exec stdbuf -oL -eL socat -ddd TCP-LISTEN:5900,reuseaddr,fork TCP:10.0.2.10:5900
+              # stunnel in a dual-hop: front terminates modern TLS, back re-encrypts to legacy SSLv3
+              cat >/tmp/stunnel/stunnel.conf <<'CONF'
+              pid = /var/run/stunnel.pid
+              foreground = yes
+              debug = 4
+              output = /dev/stdout
+
+              # Frontend: modern TLS for clients
+              [front-kvm]
+              accept = 0.0.0.0:5900
+              connect = 127.0.0.1:15000
+              cert = /tmp/stunnel/cert.pem
+              key  = /tmp/stunnel/key.pem
+              sslVersion = TLSv1.2
+              options = NO_SSLv2
+              ciphers = HIGH:!aNULL:!eNULL
+
+              # Backend: client to iDRAC using legacy SSLv3/TLS1.0 as needed
+              [back-kvm]
+              client = yes
+              accept = 127.0.0.1:15000
+              connect = 10.0.2.10:5900
+              sslVersion = SSLv3
+              options = NO_SSLv2
+              TIMEOUTconnect = 10
+              CONF
+
+              echo "starting stunnel TLS bridge: client<->(TLS1.2)front -> (SSLv3)idrac"
+              exec stunnel /tmp/stunnel/stunnel.conf
           ports:
             - containerPort: 5900
               name: kvm
