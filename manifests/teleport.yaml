@@ -1108,30 +1108,6 @@ spec:
   loadBalancerIP: 10.0.0.121
 ---
 # ============================
-# Teleport Service (LB for direct access)
-# ============================
-apiVersion: v1
-kind: Service
-metadata:
-  name: teleport-direct
-  namespace: teleport
-spec:
-  selector:
-    app: teleport
-  ports:
-    - name: web
-      port: 3080
-      targetPort: 3080
-    - name: auth
-      port: 3025
-      targetPort: 3025
-    - name: ssh
-      port: 3023
-      targetPort: 3023
-  type: LoadBalancer
-  loadBalancerIP: 10.0.0.114
----
-# ============================
 # APISIX route → Teleport over HTTPS
 # ============================
 apiVersion: apisix.apache.org/v2
