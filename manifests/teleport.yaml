@@ -469,6 +469,7 @@ data:
           sub_filter "http://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
           sub_filter "https://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
           sub_filter "http://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
+          # Keep the JNLP KVM endpoint on the public hostname.
           sub_filter "ip=10.0.2.10" "ip=idrac.teleport.app.suncoast.systems";
           proxy_set_header Accept-Encoding "";
         }
@@ -512,6 +513,7 @@ data:
           sub_filter "http://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
           sub_filter "https://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
           sub_filter "http://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
+          # Keep the JNLP KVM endpoint on the public hostname.
           sub_filter "ip=10.0.2.10" "ip=idrac.teleport.app.suncoast.systems";
           proxy_set_header Accept-Encoding "";
 
@@ -689,7 +691,8 @@ spec:
               # Accept modern TLS from clients (allow TLS1.x)
               sslVersion = all
               options = NO_SSLv2
-              ciphers = HIGH:!aNULL:!eNULL
+              # Allow legacy Java clients that only offer older ciphers.
+              ciphers = ALL:!aNULL:!eNULL
 
               # Backend: client to iDRAC using legacy SSLv3/TLS1.0 as needed
               [back-kvm]
@@ -699,6 +702,8 @@ spec:
               # Allow TLS1.x or SSLv3 as the iDRAC supports
               sslVersion = all
               options = NO_SSLv2
+              ciphers = ALL:!aNULL:!eNULL
+              verify = 0
               TIMEOUTconnect = 10
               CONF
 
