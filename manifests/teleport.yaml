@@ -11,7 +11,6 @@ metadata:
   annotations:
     linkerd.io/inject: disabled
     field.cattle.io/projectId: local:infrastructure
-    scheduler.alpha.kubernetes.io/node-selector: "dedicated=srvr-node"
     argocd.argoproj.io/sync-wave: "-5"
 ---
 apiVersion: v1
@@ -162,7 +161,7 @@ spec:
         - name: work
           emptyDir: {}
       containers:
-        - name: openssl
+        - name: bootstrap
           image: alpine:3.19
           volumeMounts:
             - name: work
@@ -170,7 +169,13 @@ spec:
           command: ["/bin/sh","-c"]
           args:
             - |
-              apk add --no-cache openssl
+              set -eu
+              apk add --no-cache openssl kubectl
+
+              if kubectl -n teleport get secret etcd-tls >/dev/null 2>&1; then
+                echo "etcd-tls already exists; skipping bootstrap"
+                exit 0
+              fi
 
               # ----- CA extensions (real CA) -----
               cat >/work/ca.cnf <<'CNF'
@@ -233,19 +238,7 @@ spec:
 
               chmod 0644 /work/ca.crt /work/server.crt /work/client.crt
               chmod 0640 /work/server.key /work/client.key
-              touch /work/ready
-        - name: kubectl
-          image: alpine:3.19
-          securityContext:
-            runAsUser: 0
-          volumeMounts:
-            - name: work
-              mountPath: /work
-          command: ["/bin/sh","-c"]
-          args:
-            - |
-              apk add --no-cache kubectl
-              while [ ! -f /work/ready ]; do sleep 1; done
+
               kubectl -n teleport create secret generic etcd-tls \
                 --from-file=ca.crt=/work/ca.crt \
                 --from-file=server.crt=/work/server.crt \
@@ -529,6 +522,17 @@ data:
     MinProtocol = SSLv3
     CipherString = ALL
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: idrac-signed-jars
+  namespace: teleport
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 500Mi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -538,6 +542,11 @@ metadata:
     app: idrac-bridge
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: idrac-bridge
@@ -571,6 +580,20 @@ spec:
               mkdir -p "$tmp" "$out" /work
 
               jars="avctKVM.jar avctKVMIOWin32.jar avctVMWin32.jar avctKVMIOWin64.jar avctVMWin64.jar avctKVMIOLinux32.jar avctVMLinux32.jar avctKVMIOLinux64.jar avctVMLinux64.jar"
+
+              if [ -d "$out" ]; then
+                missing=0
+                for j in $jars; do
+                  if [ ! -s "${out}/${j}" ]; then
+                    missing=1
+                    break
+                  fi
+                done
+                if [ "$missing" -eq 0 ]; then
+                  echo "signed jars already present; skipping download/sign"
+                  exit 0
+                fi
+              fi
 
               CURL_FLAGS="--insecure --tlsv1 --ciphers ALL:@SECLEVEL=0 -L"
 
@@ -706,7 +729,8 @@ spec:
           configMap:
             name: idrac-bridge-haproxy
         - name: signed-jars
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: idrac-signed-jars
         - name: keystore
           secret:
             secretName: idrac-signing-keystore
@@ -866,17 +890,18 @@ data:
       enabled: false
 ---
 # ============================
-# Teleport Deployment (+ watchdog sidecar)
+# Teleport StatefulSet (+ watchdog sidecar)
 # ============================
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: teleport
   namespace: teleport
   labels:
     app: teleport
 spec:
-  replicas: 1
+  replicas: 2
+  serviceName: teleport-headless
   selector:
     matchLabels:
       app: teleport
@@ -886,6 +911,16 @@ spec:
         app: teleport
     spec:
       serviceAccountName: teleport-sa
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: dedicated
+                    operator: In
+                    values:
+                      - srvr-node
       initContainers:
         - name: wait-for-etcd
           image: busybox:1.36
@@ -902,8 +937,6 @@ spec:
         - name: teleport-config
           configMap:
             name: teleport-config
-        - name: teleport-data
-          emptyDir: {}
         - name: etcd-ca
           secret:
             secretName: etcd-tls
@@ -1057,6 +1090,35 @@ spec:
               value: "1"
             - name: BYPASS_PING     # set "1" if your proxy always mangles /webapi/ping
               value: "0"
+  volumeClaimTemplates:
+    - metadata:
+        name: teleport-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+# Headless service for StatefulSet identity.
+apiVersion: v1
+kind: Service
+metadata:
+  name: teleport-headless
+  namespace: teleport
+spec:
+  clusterIP: None
+  selector:
+    app: teleport
+  ports:
+    - name: web
+      port: 3080
+      targetPort: 3080
+    - name: auth
+      port: 3025
+      targetPort: 3025
+    - name: ssh
+      port: 3023
+      targetPort: 3023
 ---
 # ============================
 # Teleport Service (LB for APISIX)
