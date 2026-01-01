@@ -282,6 +282,7 @@ spec:
   replicas: 1
   updateStrategy:
     type: OnDelete
+    rollingUpdate: null
   selector:
     matchLabels:
       app: etcd
@@ -906,6 +907,7 @@ spec:
   serviceName: teleport-headless
   updateStrategy:
     type: OnDelete
+    rollingUpdate: null
   selector:
     matchLabels:
       app: teleport
