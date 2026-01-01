@@ -280,6 +280,8 @@ metadata:
 spec:
   serviceName: etcd
   replicas: 1
+  updateStrategy:
+    type: OnDelete
   selector:
     matchLabels:
       app: etcd
@@ -902,6 +904,8 @@ metadata:
 spec:
   replicas: 2
   serviceName: teleport-headless
+  updateStrategy:
+    type: OnDelete
   selector:
     matchLabels:
       app: teleport
