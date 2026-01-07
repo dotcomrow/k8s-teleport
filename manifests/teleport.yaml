@@ -855,6 +855,9 @@ data:
             "teleport.dev/origin": "discovery-kubernetes"
 
     auth_service:
+      message_of_the_day: |
+        Welcome to the Suncoast Teleport Cluster
+        Authorized use only. All Activity is monitored, recorded, and audited.
       enabled: true
       listen_addr: 0.0.0.0:3025
       proxy_protocol: off
