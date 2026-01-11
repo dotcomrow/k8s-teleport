@@ -384,11 +384,12 @@ spec:
           command: ["/bin/sh","-c"]
           args:
             - |
-              set -e
+              set -euo pipefail
+              apk add --no-cache jq >/dev/null
               echo "Copying vault-root-token from vault -> teleport"
-              kubectl get secret vault-root-token -n vault -o yaml | \
-                sed 's/namespace: vault/namespace: teleport/' | \
-                kubectl apply -f -
+              kubectl get secret vault-root-token -n vault -o json \
+                | jq '.metadata.namespace="teleport" | del(.metadata.uid,.metadata.resourceVersion,.metadata.creationTimestamp,.metadata.managedFields,.metadata.annotations,.metadata.ownerReferences,.metadata.finalizers,.metadata.generateName,.metadata.selfLink,.metadata.generation,.metadata.labels,.metadata.annotations)' \
+                | kubectl apply -f -
               echo "Secret copied successfully."
 ---
 apiVersion: batch/v1
