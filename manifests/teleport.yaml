@@ -889,6 +889,8 @@ spec:
         vault.hashicorp.com/agent-inject: "true"
         vault.hashicorp.com/role: "idrac6-console"
         vault.hashicorp.com/agent-inject-secret-oauth2.env: "secret/data/idrac-kvm-oauth2-proxy-client-id"
+        vault.hashicorp.com/agent-inject-secret-oauth2.env-1: "secret/data/idrac-kvm-oauth2-proxy-client-secret"
+        vault.hashicorp.com/agent-inject-secret-oauth2.env-2: "secret/data/idrac-kvm-oauth2-proxy-cookie-secret"
         vault.hashicorp.com/agent-inject-template-oauth2.env: |
           {{- with secret "secret/data/idrac-kvm-oauth2-proxy-client-id" -}}
           OAUTH2_PROXY_CLIENT_ID={{ .Data.data.value }}
