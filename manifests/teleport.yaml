@@ -399,7 +399,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: idrac6-vault-bootstrap
+  name: idrac6-vault-bootstrap-v2
   namespace: teleport
   annotations:
     argocd.argoproj.io/sync-options: Replace=true
@@ -407,9 +407,6 @@ metadata:
     app: idrac6-vault-bootstrap
 spec:
   backoffLimit: 2
-  selector:
-    matchLabels:
-      app: idrac6-vault-bootstrap
   template:
     metadata:
       labels:
