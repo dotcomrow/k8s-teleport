@@ -364,31 +364,6 @@ metadata:
   name: idrac-bridge
   namespace: teleport
 ---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: idrac-keystore-writer
-  namespace: teleport
-rules:
-- apiGroups: [""]
-  resources: ["secrets"]
-  resourceNames: ["idrac-signing-keystore"]
-  verbs: ["get","create","update","patch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: idrac-keystore-writer-binding
-  namespace: teleport
-subjects:
-- kind: ServiceAccount
-  name: idrac-bridge
-  namespace: teleport
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: idrac-keystore-writer
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -472,14 +447,6 @@ data:
         }
 
         # Serve locally re-signed jars first; fall back to backend if missing.
-        location /software/ {
-          alias /srv/signed/;
-          expires 365d;
-          add_header Cache-Control "public, max-age=31536000, immutable";
-          try_files $uri @idrac_backend;
-        }
-
-        # All other paths go straight to backend.
         location / {
           try_files $uri @idrac_backend;
         }
@@ -566,18 +533,6 @@ data:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: idrac-signed-jars-nfs
-  namespace: teleport
-spec:
-  accessModes: ["ReadWriteOnce"]
-  storageClassName: nfs-client
-  resources:
-    requests:
-      storage: 500Mi
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
   name: idrac-cache-nfs
   namespace: teleport
 spec:
@@ -610,102 +565,6 @@ spec:
         app: idrac-bridge
     spec:
       serviceAccountName: idrac-bridge
-      initContainers:
-        - name: resign-idrac-jars
-          image: eclipse-temurin:8-jdk-jammy
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: UPSTREAM
-              value: "https://10.0.2.10:443"
-            - name: SECRET_NAME
-              value: "idrac-signing-keystore"
-            - name: STOREPASS
-              valueFrom:
-                secretKeyRef:
-                  name: idrac-signing-keystore
-                  key: storepass
-                  optional: true
-          command: ["/bin/sh","-c"]
-          args:
-            - |
-              set -eu
-              tmp="/tmp/jars"
-              out="/signed"
-              mkdir -p "$tmp" "$out" /work
-
-              jars="avctKVM.jar avctKVMIOWin32.jar avctVMWin32.jar avctKVMIOWin64.jar avctVMWin64.jar avctKVMIOLinux32.jar avctVMLinux32.jar avctKVMIOLinux64.jar avctVMLinux64.jar"
-
-              if [ -d "$out" ]; then
-                missing=0
-                for j in $jars; do
-                  if [ ! -s "${out}/${j}" ]; then
-                    missing=1
-                    break
-                  fi
-                done
-                if [ "$missing" -eq 0 ]; then
-                  echo "signed jars already present; skipping download/sign"
-                  exit 0
-                fi
-              fi
-
-              CURL_FLAGS="--insecure --tlsv1 --ciphers ALL:@SECLEVEL=0 -L"
-
-              for j in $jars; do
-                echo "fetching $j"
-                if ! curl -fsS $CURL_FLAGS "${UPSTREAM}/software/${j}" -o "${tmp}/${j}"; then
-                  echo "warn: failed to fetch ${j} from upstream"; continue
-                fi
-              done
-
-              ks="/work/idrac.jks"
-              storepass="${STOREPASS:-changeit}"
-              secret_name="${SECRET_NAME:-idrac-signing-keystore}"
-              ns="$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)"
-              token="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
-              cacert="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-              api="https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}"
-
-              create_secret_if_needed() {
-                jks_b64="$(base64 -w0 "$ks")"
-                pass_b64="$(printf '%s' "$storepass" | base64 -w0)"
-                printf '{"apiVersion":"v1","kind":"Secret","metadata":{"name":"%s","namespace":"%s"},"type":"Opaque","data":{"idrac.jks":"%s","storepass":"%s"}}' \
-                  "${secret_name}" "${ns}" "${jks_b64}" "${pass_b64}" >/tmp/idrac-secret.json
-                if curl -fsS --cacert "$cacert" -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
-                    -X POST "$api/api/v1/namespaces/${ns}/secrets" -d @/tmp/idrac-secret.json; then
-                  echo "created keystore secret ${secret_name}"
-                else
-                  # If it already exists, update it.
-                  curl -fsS --cacert "$cacert" -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
-                    -X PUT "$api/api/v1/namespaces/${ns}/secrets/${secret_name}" -d @/tmp/idrac-secret.json || true
-                  echo "updated keystore secret ${secret_name}"
-                fi
-              }
-
-              if [ -f /keystore/idrac.jks ]; then
-                echo "using provided keystore"
-                cp /keystore/idrac.jks "$ks"
-                if [ -f /keystore/storepass ]; then storepass="$(cat /keystore/storepass)"; fi
-              else
-                echo "generating self-signed keystore (secret ${secret_name} not mounted)"
-                keytool -genkeypair -alias idrac -keyalg RSA -keystore "$ks" -storepass "$storepass" -dname "CN=iDRAC Proxy,O=Local" -validity 3650
-                create_secret_if_needed
-              fi
-
-              for j in $jars; do
-                [ -f "${tmp}/${j}" ] || continue
-                echo "signing $j"
-                jarsigner -keystore "$ks" -storepass "$storepass" -sigalg SHA256withRSA -digestalg SHA-256 "${tmp}/${j}" idrac
-                cp "${tmp}/${j}" "${out}/${j}"
-              done
-          volumeMounts:
-            - name: signed-jars
-              mountPath: /signed
-            - name: keystore
-              mountPath: /keystore
-              readOnly: true
-            - name: work
-              mountPath: /work
       containers:
         - name: nginx
           image: nginx:1.25-alpine
@@ -717,8 +576,6 @@ spec:
             - name: config
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
-            - name: signed-jars
-              mountPath: /srv/signed
             - name: nginx-cache
               mountPath: /var/cache/nginx
         - name: kvm-proxy
@@ -784,18 +641,9 @@ spec:
         - name: config
           configMap:
             name: idrac-bridge-haproxy
-        - name: signed-jars
-          persistentVolumeClaim:
-            claimName: idrac-signed-jars-nfs
         - name: nginx-cache
           persistentVolumeClaim:
             claimName: idrac-cache-nfs
-        - name: keystore
-          secret:
-            secretName: idrac-signing-keystore
-            optional: true
-        - name: work
-          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
