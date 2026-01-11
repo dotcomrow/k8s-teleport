@@ -355,479 +355,83 @@ spec:
             storage: 10Gi
 ---
 # ============================
-# Legacy iDRAC TLS bridge (Nginx)
-# Allows Teleport to talk HTTP in-cluster while Nginx speaks TLS1.0 to iDRAC and rewrites absolute URLs
+# iDRAC6 HTML5/VNC console (domistyle/idrac6) with Vault-injected creds
 # ============================
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: idrac-bridge
+  name: idrac6-console
   namespace: teleport
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: idrac-keystore-writer
-  namespace: teleport
-rules:
-- apiGroups: [""]
-  resources: ["secrets"]
-  resourceNames: ["idrac-signing-keystore"]
-  verbs: ["get","create","update","patch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: idrac-keystore-writer-binding
-  namespace: teleport
-subjects:
-- kind: ServiceAccount
-  name: idrac-bridge
-  namespace: teleport
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: idrac-keystore-writer
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: idrac-bridge-haproxy
-  namespace: teleport
-data:
-  nginx.conf: |
-    worker_processes  auto;
-    events { worker_connections  4096; }
-    http {
-      log_format main '$remote_addr - $remote_user [$time_local] "$request" '
-                      '$status $body_bytes_sent "$http_referer" '
-                      '"$http_user_agent" "$http_x_forwarded_for"';
-      access_log /dev/stdout main;
-      error_log  /dev/stderr notice;
-      proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=idrac_cache:50m max_size=2g inactive=365d use_temp_path=off;
-
-      map $uri $idrac_cache_bypass {
-        default "1";
-        ~*\.(?:css|js|png|jpe?g|gif|ico|svg|ttf|woff2?|map|jnlp|jar)$ "";
-      }
-
-      upstream idrac_upstream {
-        server 10.0.2.10:443;
-        keepalive 16;
-      }
-
-      server {
-        listen 8080;
-
-        # Talk to legacy iDRAC over TLS1.0 and ignore its cert.
-        resolver 1.1.1.1 valid=300s ipv6=off;
-
-        # Force simple filename for JNLP downloads (handles extra path suffix like viewer.jnlp(...)).
-        location ~* \.jnlp.* {
-          add_header Content-Disposition 'attachment; filename="idrac.jnlp"' always;
-          add_header Content-Type application/x-java-jnlp-file always;
-          proxy_hide_header Content-Disposition;
-          proxy_hide_header Content-Type;
-          proxy_cache idrac_cache;
-          proxy_cache_key "$scheme$proxy_host$request_uri";
-          proxy_cache_methods GET HEAD;
-          proxy_cache_valid 200 301 302 3650d;
-          proxy_cache_valid any 10m;
-          proxy_cache_min_uses 1;
-          proxy_cache_use_stale error timeout invalid_header updating http_500 http_502 http_503 http_504;
-          proxy_cache_lock on;
-          proxy_cache_background_update on;
-          proxy_cache_revalidate off;
-          proxy_cache_bypass $idrac_cache_bypass;
-          proxy_no_cache $idrac_cache_bypass;
-          proxy_ignore_headers Cache-Control Expires;
-          add_header X-Cache-Status $upstream_cache_status always;
-          add_header Cache-Control "public, max-age=31536000, immutable";
-          expires 365d;
-          proxy_pass https://idrac_upstream;
-          proxy_ssl_server_name off;
-          proxy_ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
-          proxy_ssl_ciphers ALL:@SECLEVEL=0;
-          proxy_ssl_verify off;
-          proxy_ssl_session_reuse on;
-          proxy_http_version 1.1;
-          proxy_set_header Connection "";
-          proxy_set_header Host 10.0.2.10;
-          proxy_set_header X-Forwarded-Proto https;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-          proxy_redirect https://10.0.2.10/ https://idrac.teleport.app.suncoast.systems/;
-          proxy_redirect https://10.0.2.10:443/ https://idrac.teleport.app.suncoast.systems/;
-          proxy_cookie_domain 10.0.2.10 idrac.teleport.app.suncoast.systems;
-
-          sub_filter_once off;
-          sub_filter_types *;
-          sub_filter "https://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
-          sub_filter "http://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
-          sub_filter "https://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
-          sub_filter "http://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
-          # Keep the JNLP KVM endpoint on the public hostname.
-          sub_filter "ip=10.0.2.10" "ip=idrac.teleport.app.suncoast.systems";
-          proxy_set_header Accept-Encoding "";
-        }
-
-        # Serve locally re-signed jars first; fall back to backend if missing.
-        location /software/ {
-          alias /srv/signed/;
-          expires 365d;
-          add_header Cache-Control "public, max-age=31536000, immutable";
-          try_files $uri @idrac_backend;
-        }
-
-        # All other paths go straight to backend.
-        location / {
-          try_files $uri @idrac_backend;
-        }
-
-        location @idrac_backend {
-          proxy_pass https://idrac_upstream;
-          proxy_ssl_server_name off;
-          proxy_ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
-          proxy_ssl_ciphers ALL:@SECLEVEL=0;
-          proxy_ssl_verify off;
-          proxy_ssl_session_reuse on;
-          proxy_http_version 1.1;
-          proxy_set_header Connection "";
-          proxy_set_header Host 10.0.2.10;
-          proxy_set_header X-Forwarded-Proto https;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-          # Rewrite absolute redirects/cookie domains to stay on Teleport.
-          proxy_redirect https://10.0.2.10/ https://idrac.teleport.app.suncoast.systems/;
-          proxy_redirect https://10.0.2.10:443/ https://idrac.teleport.app.suncoast.systems/;
-          proxy_cookie_domain 10.0.2.10 idrac.teleport.app.suncoast.systems;
-
-          # Rewrite absolute URLs in HTML/CSS/JS responses.
-          sub_filter_once off;
-          # Filter all MIME types so JNLP and static assets get rewritten (avoid duplicate mime warnings).
-          sub_filter_types *;
-          sub_filter "https://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
-          sub_filter "http://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
-          sub_filter "https://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
-          sub_filter "http://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
-          # Keep the JNLP KVM endpoint on the public hostname.
-          sub_filter "ip=10.0.2.10" "ip=idrac.teleport.app.suncoast.systems";
-          proxy_set_header Accept-Encoding "";
-
-          # Cache static GET/HEAD responses so we only hit iDRAC once for assets.
-          proxy_cache idrac_cache;
-          proxy_cache_key "$scheme$proxy_host$request_uri";
-          proxy_cache_methods GET HEAD;
-          proxy_cache_valid 200 301 302 3650d;
-          proxy_cache_valid any 10m;
-          proxy_cache_min_uses 1;
-          proxy_cache_use_stale error timeout invalid_header updating http_500 http_502 http_503 http_504;
-          proxy_cache_lock on;
-          proxy_cache_background_update on;
-          proxy_cache_revalidate off;
-          proxy_cache_bypass $idrac_cache_bypass;
-          proxy_no_cache $idrac_cache_bypass;
-          proxy_ignore_headers Cache-Control Expires;
-          add_header X-Cache-Status $upstream_cache_status always;
-
-          proxy_buffering on;
-          proxy_buffers 32 64k;
-          proxy_busy_buffers_size 256k;
-          proxy_max_temp_file_size 0;
-
-          proxy_connect_timeout 30s;
-          proxy_read_timeout 300s;
-          proxy_send_timeout 300s;
-        }
-      }
-    }
-  stunnel.conf: |
-    pid = /var/run/stunnel.pid
-    foreground = yes
-    debug = 4
-    output = /dev/stdout
-    client = yes
-    verify = 0
-    # Allow TLS1.x/1.2 while still permitting SSLv3 for the legacy target
-    sslVersion = all
-    options = -NO_SSLv3
-    ciphers = ALL
-    TIMEOUTconnect = 10
-
-    [kvm]
-    accept = 0.0.0.0:5900
-    connect = 10.0.2.10:5900
-  openssl.cnf: |
-    # Minimal config for legacy TLS1.0/weak ciphers on old OpenSSL
-    [system_default_sect]
-    MinProtocol = SSLv3
-    CipherString = ALL
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: idrac-signed-jars-nfs
-  namespace: teleport
-spec:
-  accessModes: ["ReadWriteOnce"]
-  storageClassName: nfs-client
-  resources:
-    requests:
-      storage: 500Mi
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: idrac-cache-nfs
-  namespace: teleport
-spec:
-  accessModes: ["ReadWriteOnce"]
-  storageClassName: nfs-client
-  resources:
-    requests:
-      storage: 2Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: idrac-bridge
+  name: idrac6-console
   namespace: teleport
   labels:
-    app: idrac-bridge
+    app: idrac6-console
 spec:
   replicas: 1
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 0
-      maxUnavailable: 1
   selector:
     matchLabels:
-      app: idrac-bridge
+      app: idrac6-console
   template:
     metadata:
       labels:
-        app: idrac-bridge
+        app: idrac6-console
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "idrac6-console"
+        vault.hashicorp.com/agent-inject-secret-idrac-host.env: "secret/data/teleport/idrac6-host"
+        vault.hashicorp.com/agent-inject-template-idrac-host.env: |
+          {{- with secret "secret/data/teleport/idrac6-host" -}}
+          IDRAC_HOST={{ .Data.data.value }}
+          {{- end }}
+        vault.hashicorp.com/agent-inject-secret-idrac-user.env: "secret/data/teleport/idrac6-user"
+        vault.hashicorp.com/agent-inject-template-idrac-user.env: |
+          {{- with secret "secret/data/teleport/idrac6-user" -}}
+          IDRAC_USER={{ .Data.data.value }}
+          {{- end }}
+        vault.hashicorp.com/agent-inject-secret-idrac-password.env: "secret/data/teleport/idrac6-password"
+        vault.hashicorp.com/agent-inject-template-idrac-password.env: |
+          {{- with secret "secret/data/teleport/idrac6-password" -}}
+          IDRAC_PASSWORD={{ .Data.data.value }}
+          {{- end }}
     spec:
-      serviceAccountName: idrac-bridge
-      initContainers:
-        - name: resign-idrac-jars
-          image: eclipse-temurin:8-jdk-jammy
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: UPSTREAM
-              value: "https://10.0.2.10:443"
-            - name: SECRET_NAME
-              value: "idrac-signing-keystore"
-            - name: STOREPASS
-              valueFrom:
-                secretKeyRef:
-                  name: idrac-signing-keystore
-                  key: storepass
-                  optional: true
-          command: ["/bin/sh","-c"]
-          args:
-            - |
-              set -eu
-              tmp="/tmp/jars"
-              out="/signed"
-              mkdir -p "$tmp" "$out" /work
-
-              jars="avctKVM.jar avctKVMIOWin32.jar avctVMWin32.jar avctKVMIOWin64.jar avctVMWin64.jar avctKVMIOLinux32.jar avctVMLinux32.jar avctKVMIOLinux64.jar avctVMLinux64.jar"
-
-              if [ -d "$out" ]; then
-                missing=0
-                for j in $jars; do
-                  if [ ! -s "${out}/${j}" ]; then
-                    missing=1
-                    break
-                  fi
-                done
-                if [ "$missing" -eq 0 ]; then
-                  echo "signed jars already present; skipping download/sign"
-                  exit 0
-                fi
-              fi
-
-              CURL_FLAGS="--insecure --tlsv1 --ciphers ALL:@SECLEVEL=0 -L"
-
-              for j in $jars; do
-                echo "fetching $j"
-                if ! curl -fsS $CURL_FLAGS "${UPSTREAM}/software/${j}" -o "${tmp}/${j}"; then
-                  echo "warn: failed to fetch ${j} from upstream"; continue
-                fi
-              done
-
-              ks="/work/idrac.jks"
-              storepass="${STOREPASS:-changeit}"
-              secret_name="${SECRET_NAME:-idrac-signing-keystore}"
-              ns="$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)"
-              token="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
-              cacert="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-              api="https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}"
-
-              create_secret_if_needed() {
-                jks_b64="$(base64 -w0 "$ks")"
-                pass_b64="$(printf '%s' "$storepass" | base64 -w0)"
-                printf '{"apiVersion":"v1","kind":"Secret","metadata":{"name":"%s","namespace":"%s"},"type":"Opaque","data":{"idrac.jks":"%s","storepass":"%s"}}' \
-                  "${secret_name}" "${ns}" "${jks_b64}" "${pass_b64}" >/tmp/idrac-secret.json
-                if curl -fsS --cacert "$cacert" -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
-                    -X POST "$api/api/v1/namespaces/${ns}/secrets" -d @/tmp/idrac-secret.json; then
-                  echo "created keystore secret ${secret_name}"
-                else
-                  # If it already exists, update it.
-                  curl -fsS --cacert "$cacert" -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
-                    -X PUT "$api/api/v1/namespaces/${ns}/secrets/${secret_name}" -d @/tmp/idrac-secret.json || true
-                  echo "updated keystore secret ${secret_name}"
-                fi
-              }
-
-              if [ -f /keystore/idrac.jks ]; then
-                echo "using provided keystore"
-                cp /keystore/idrac.jks "$ks"
-                if [ -f /keystore/storepass ]; then storepass="$(cat /keystore/storepass)"; fi
-              else
-                echo "generating self-signed keystore (secret ${secret_name} not mounted)"
-                keytool -genkeypair -alias idrac -keyalg RSA -keystore "$ks" -storepass "$storepass" -dname "CN=iDRAC Proxy,O=Local" -validity 3650
-                create_secret_if_needed
-              fi
-
-              for j in $jars; do
-                [ -f "${tmp}/${j}" ] || continue
-                echo "signing $j"
-                jarsigner -keystore "$ks" -storepass "$storepass" -sigalg SHA256withRSA -digestalg SHA-256 "${tmp}/${j}" idrac
-                cp "${tmp}/${j}" "${out}/${j}"
-              done
-          volumeMounts:
-            - name: signed-jars
-              mountPath: /signed
-            - name: keystore
-              mountPath: /keystore
-              readOnly: true
-            - name: work
-              mountPath: /work
+      serviceAccountName: idrac6-console
       containers:
-        - name: nginx
-          image: nginx:1.25-alpine
-          args: ["nginx","-g","daemon off;","-c","/etc/nginx/nginx.conf"]
-          ports:
-            - containerPort: 8080
-              name: http
-          volumeMounts:
-            - name: config
-              mountPath: /etc/nginx/nginx.conf
-              subPath: nginx.conf
-            - name: signed-jars
-              mountPath: /srv/signed
-            - name: nginx-cache
-              mountPath: /var/cache/nginx
-        - name: kvm-proxy
-          image: ghcr.io/dotcomrow/kvm-proxy:7a65641c8fe1f1d4c1b29ee2bf79453edf099b63
+        - name: idrac6
+          image: domistyle/idrac6:latest
           command:
             - /bin/sh
             - -c
             - |
-              set -e
-              # Generate a throwaway cert for the modern-facing listener
-              mkdir -p /tmp/stunnel
-              openssl req -new -x509 -nodes -subj "/CN=idrac-bridge" -days 3650 \
-                -out /tmp/stunnel/cert.pem -keyout /tmp/stunnel/key.pem >/dev/null 2>&1
-
-              # stunnel in a dual-hop: front terminates modern TLS, back re-encrypts to legacy SSLv3
-              cat >/tmp/stunnel/stunnel.conf <<'CONF'
-              pid = /var/run/stunnel.pid
-              foreground = yes
-              debug = 4
-              output = /dev/stdout
-
-              # Frontend: modern TLS for clients
-              [front-kvm]
-              accept = 0.0.0.0:5900
-              connect = 127.0.0.1:15000
-              cert = /tmp/stunnel/cert.pem
-              key  = /tmp/stunnel/key.pem
-              # Accept modern TLS from clients (allow TLS1.x)
-              sslVersion = all
-              options = NO_SSLv2
-              # Allow legacy Java clients that only offer older ciphers.
-              ciphers = ALL:!aNULL:!eNULL
-
-              # Backend: client to iDRAC using legacy SSLv3/TLS1.0 as needed
-              [back-kvm]
-              client = yes
-              accept = 127.0.0.1:15000
-              connect = 10.0.2.10:5900
-              # Allow TLS1.x or SSLv3 as the iDRAC supports
-              sslVersion = all
-              options = NO_SSLv2
-              ciphers = ALL:!aNULL:!eNULL
-              verify = 0
-              TIMEOUTconnect = 10
-              CONF
-
-              echo "starting stunnel TLS bridge: client<->(TLS1.2)front -> (SSLv3)idrac"
-              exec stunnel /tmp/stunnel/stunnel.conf
+              set -a
+              [ -f /vault/secrets/idrac-host.env ] && . /vault/secrets/idrac-host.env
+              [ -f /vault/secrets/idrac-user.env ] && . /vault/secrets/idrac-user.env
+              [ -f /vault/secrets/idrac-password.env ] && . /vault/secrets/idrac-password.env
+              exec /init
           ports:
-            - containerPort: 5900
-              name: kvm
-        - name: diag
-          image: alpine:3.8
-          command: ["/bin/sh","-c","apk add --no-cache curl openssl busybox-extras && exec sleep 99999999"]
-          env:
-            - name: OPENSSL_CONF
-              value: /etc/stunnel/openssl.cnf
-          volumeMounts:
-            - name: config
-              mountPath: /etc/stunnel/openssl.cnf
-              subPath: openssl.cnf
-      volumes:
-        - name: config
-          configMap:
-            name: idrac-bridge-haproxy
-        - name: signed-jars
-          persistentVolumeClaim:
-            claimName: idrac-signed-jars-nfs
-        - name: nginx-cache
-          persistentVolumeClaim:
-            claimName: idrac-cache-nfs
-        - name: keystore
-          secret:
-            secretName: idrac-signing-keystore
-            optional: true
-        - name: work
-          emptyDir: {}
+            - name: web
+              containerPort: 5800
+            - name: vnc
+              containerPort: 5900
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: idrac-bridge
+  name: idrac6-console
   namespace: teleport
 spec:
   selector:
-    app: idrac-bridge
+    app: idrac6-console
   ports:
-    - name: http
-      port: 8080
-      targetPort: http
-    - name: kvm
+    - name: web
+      port: 80
+      targetPort: web
+    - name: vnc
       port: 5900
-      targetPort: kvm
----
-# Optional external exposure for KVM TCP (5900) via NodePort/LB
-apiVersion: v1
-kind: Service
-metadata:
-  name: idrac-bridge-kvm
-  namespace: teleport
-spec:
-  type: LoadBalancer   # change to NodePort if preferred
-  loadBalancerIP: 10.0.0.150
-  selector:
-    app: idrac-bridge
-  ports:
-    - name: kvm
-      port: 5900
-      targetPort: kvm
+      targetPort: vnc
 ---
 # ============================
 # Teleport config (ConfigMap)
@@ -899,11 +503,8 @@ data:
               - "Host: proxmox.suncoast.systems"
 
         - name: idrac
-          uri: http://idrac-bridge.teleport.svc.cluster.local:8080
+          uri: http://idrac6-console.teleport.svc.cluster.local
           public_addr: idrac.teleport.app.suncoast.systems
-          rewrite:
-            headers:
-              - "Host: 10.0.2.10"
 
       resources:
         - labels:
@@ -1256,30 +857,6 @@ spec:
           enable: true
           config:
             regex_uri: ["^/pgweb(/.*)?$", "/$1"]
-
----
-# Direct path routing for static iDRAC assets (bypass Teleport auth for JNLP/JAR downloads)
-apiVersion: apisix.apache.org/v2
-kind: ApisixRoute
-metadata:
-  name: idrac-files-route
-  namespace: teleport
-  annotations:
-    apisix.apache.org/priority: "10"  # take precedence over wildcard Teleport route
-spec:
-  ingressClassName: apisix
-  http:
-    - name: idrac-files
-      match:
-        hosts:
-          - "idrac.teleport.app.suncoast.systems"
-        paths:
-          - /software/*
-          - /images/*
-          - /help/*
-      backends:
-        - serviceName: idrac-bridge
-          servicePort: 8080
 
 ---
 # ============================
