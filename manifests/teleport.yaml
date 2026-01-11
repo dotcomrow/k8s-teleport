@@ -842,10 +842,18 @@ spec:
             - /bin/sh
             - -c
             - |
+              set -e
+              for f in /vault/secrets/idrac-host.env /vault/secrets/idrac-user.env /vault/secrets/idrac-password.env; do
+                for i in $(seq 1 30); do
+                  [ -s "$f" ] && break
+                  echo "waiting for vault secret $f"
+                  sleep 1
+                done
+              done
               set -a
-              [ -f /vault/secrets/idrac-host.env ] && . /vault/secrets/idrac-host.env
-              [ -f /vault/secrets/idrac-user.env ] && . /vault/secrets/idrac-user.env
-              [ -f /vault/secrets/idrac-password.env ] && . /vault/secrets/idrac-password.env
+              . /vault/secrets/idrac-host.env
+              . /vault/secrets/idrac-user.env
+              . /vault/secrets/idrac-password.env
               exec /init
           ports:
             - name: web
