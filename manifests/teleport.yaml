@@ -1024,7 +1024,6 @@ data:
           rewrite:
             headers:
               - "Host: idrac-vnc.teleport.app.suncoast.systems"
-              - "X-Forwarded-Proto: https"
 
       resources:
         - labels:
