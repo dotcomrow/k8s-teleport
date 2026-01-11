@@ -896,6 +896,7 @@ spec:
       annotations:
         vault.hashicorp.com/agent-inject: "true"
         vault.hashicorp.com/role: "idrac6-console"
+        vault.hashicorp.com/agent-inject-secret-oauth2.cfg: "secret/data/idrac-kvm-oauth2-proxy-client-id"
         vault.hashicorp.com/agent-inject-template-oauth2.cfg: |
           {{ with secret "secret/data/idrac-kvm-oauth2-proxy-client-id" }}
           client_id = "{{ .Data.data.value }}"
@@ -917,7 +918,7 @@ spec:
             - "--http-address=0.0.0.0:4180"
             - "--redirect-url=https://idrac-vnc.teleport.app.suncoast.systems/oauth2/callback"
             - "--reverse-proxy=true"
-            - "--cookie-domain=teleport.app.suncoast.systems"
+            - "--cookie-domain=idrac-vnc.teleport.app.suncoast.systems"
             - "--whitelist-domain=idrac-vnc.teleport.app.suncoast.systems"
             - "--cookie-secure=true"
             - "--cookie-samesite=lax"
@@ -925,6 +926,7 @@ spec:
             - "--email-domain=*"
             - "--cookie-refresh=24h"
             - "--cookie-expire=168h"
+            - "--proxy-websockets=true"
           ports:
             - name: http
               containerPort: 4180
