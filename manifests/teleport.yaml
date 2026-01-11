@@ -401,6 +401,8 @@ kind: Job
 metadata:
   name: idrac6-vault-bootstrap
   namespace: teleport
+  annotations:
+    argocd.argoproj.io/sync-options: Replace=true
 spec:
   backoffLimit: 2
   template:
