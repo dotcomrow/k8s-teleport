@@ -869,7 +869,7 @@ spec:
       port: 5900
       targetPort: vnc
 ---
-apiVersion: v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: idrac6-oauth2-proxy
