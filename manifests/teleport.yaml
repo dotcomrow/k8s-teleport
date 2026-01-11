@@ -566,7 +566,7 @@ data:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: idrac-signed-jars
+  name: idrac-signed-jars-nfs
   namespace: teleport
 spec:
   accessModes: ["ReadWriteOnce"]
@@ -578,7 +578,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: idrac-cache
+  name: idrac-cache-nfs
   namespace: teleport
 spec:
   accessModes: ["ReadWriteOnce"]
@@ -786,10 +786,10 @@ spec:
             name: idrac-bridge-haproxy
         - name: signed-jars
           persistentVolumeClaim:
-            claimName: idrac-signed-jars
+            claimName: idrac-signed-jars-nfs
         - name: nginx-cache
           persistentVolumeClaim:
-            claimName: idrac-cache
+            claimName: idrac-cache-nfs
         - name: keystore
           secret:
             secretName: idrac-signing-keystore
