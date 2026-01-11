@@ -429,13 +429,13 @@ spec:
               vault status >/dev/null
 
               cat > /tmp/idrac6-console.hcl <<'POLICY'
-              path "secret/data/teleport/idrac6-host" {
+              path "secret/data/idrac6-host" {
                 capabilities = ["read"]
               }
-              path "secret/data/teleport/idrac6-user" {
+              path "secret/data/idrac6-user" {
                 capabilities = ["read"]
               }
-              path "secret/data/teleport/idrac6-password" {
+              path "secret/data/idrac6-password" {
                 capabilities = ["read"]
               }
               POLICY
@@ -477,19 +477,19 @@ spec:
       annotations:
         vault.hashicorp.com/agent-inject: "true"
         vault.hashicorp.com/role: "idrac6-console"
-        vault.hashicorp.com/agent-inject-secret-idrac-host.env: "secret/data/teleport/idrac6-host"
+        vault.hashicorp.com/agent-inject-secret-idrac-host.env: "secret/data/idrac6-host"
         vault.hashicorp.com/agent-inject-template-idrac-host.env: |
-          {{- with secret "secret/data/teleport/idrac6-host" -}}
+          {{- with secret "secret/data/idrac6-host" -}}
           IDRAC_HOST={{ .Data.data.value }}
           {{- end }}
-        vault.hashicorp.com/agent-inject-secret-idrac-user.env: "secret/data/teleport/idrac6-user"
+        vault.hashicorp.com/agent-inject-secret-idrac-user.env: "secret/data/idrac6-user"
         vault.hashicorp.com/agent-inject-template-idrac-user.env: |
-          {{- with secret "secret/data/teleport/idrac6-user" -}}
+          {{- with secret "secret/data/idrac6-user" -}}
           IDRAC_USER={{ .Data.data.value }}
           {{- end }}
-        vault.hashicorp.com/agent-inject-secret-idrac-password.env: "secret/data/teleport/idrac6-password"
+        vault.hashicorp.com/agent-inject-secret-idrac-password.env: "secret/data/idrac6-password"
         vault.hashicorp.com/agent-inject-template-idrac-password.env: |
-          {{- with secret "secret/data/teleport/idrac6-password" -}}
+          {{- with secret "secret/data/idrac6-password" -}}
           IDRAC_PASSWORD={{ .Data.data.value }}
           {{- end }}
     spec:
