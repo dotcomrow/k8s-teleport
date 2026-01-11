@@ -360,6 +360,100 @@ spec:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  name: idrac6-vault-setup
+  namespace: teleport
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: copy-drools-vault-root-token
+  namespace: vault
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-4"
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      serviceAccountName: default
+      restartPolicy: Never
+      containers:
+        - name: copy-secret
+          image: alpine/k8s:1.31.4
+          command: ["/bin/sh","-c"]
+          args:
+            - |
+              set -e
+              echo "Copying vault-root-token from vault -> teleport"
+              kubectl get secret vault-root-token -n vault -o yaml | \
+                sed 's/namespace: vault/namespace: teleport/' | \
+                kubectl apply -f -
+              echo "Secret copied successfully."
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: idrac6-vault-bootstrap
+  namespace: teleport
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-3"
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      serviceAccountName: idrac6-vault-setup
+      restartPolicy: Never
+      containers:
+        - name: vault-bootstrap
+          image: hashicorp/vault:1.14.3
+          env:
+            - name: VAULT_ADDR
+              value: "http://vault.vault.svc.cluster.local:8200"
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-root-token
+                  key: token
+            - name: VAULT_AUTH_PATH
+              value: "kubernetes"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -euo pipefail
+
+              vault status >/dev/null
+
+              cat > /tmp/idrac6-console.hcl <<'POLICY'
+              path "secret/data/teleport/idrac6-host" {
+                capabilities = ["read"]
+              }
+              path "secret/data/teleport/idrac6-user" {
+                capabilities = ["read"]
+              }
+              path "secret/data/teleport/idrac6-password" {
+                capabilities = ["read"]
+              }
+              POLICY
+
+              echo "Writing policy idrac6-console"
+              vault policy write idrac6-console /tmp/idrac6-console.hcl
+
+              echo "Writing Kubernetes auth role idrac6-console"
+              vault write "auth/${VAULT_AUTH_PATH}/role/idrac6-console" \
+                bound_service_account_names=idrac6-console \
+                bound_service_account_namespaces=teleport \
+                policies=idrac6-console \
+                ttl=24h
+
+              echo "Vault bootstrap complete"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
   name: idrac6-console
   namespace: teleport
 ---
