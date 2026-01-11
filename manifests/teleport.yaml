@@ -770,6 +770,15 @@ spec:
               path "secret/data/idrac6-password" {
                 capabilities = ["read"]
               }
+              path "secret/data/idrac-kvm-oauth2-proxy-client-id" {
+                capabilities = ["read"]
+              }
+              path "secret/data/idrac-kvm-oauth2-proxy-client-secret" {
+                capabilities = ["read"]
+              }
+              path "secret/data/idrac-kvm-oauth2-proxy-cookie-secret" {
+                capabilities = ["read"]
+              }
               POLICY
 
               echo "Writing policy idrac6-console"
@@ -860,6 +869,74 @@ spec:
       port: 5900
       targetPort: vnc
 ---
+apiVersion: v1
+kind: Deployment
+metadata:
+  name: idrac6-oauth2-proxy
+  namespace: teleport
+  labels:
+    app: idrac6-oauth2-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: idrac6-oauth2-proxy
+  template:
+    metadata:
+      labels:
+        app: idrac6-oauth2-proxy
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "idrac6-console"
+        vault.hashicorp.com/agent-inject-secret-oauth2.env: "secret/data/idrac-kvm-oauth2-proxy-client-id"
+        vault.hashicorp.com/agent-inject-template-oauth2.env: |
+          {{- with secret "secret/data/idrac-kvm-oauth2-proxy-client-id" -}}
+          OAUTH2_PROXY_CLIENT_ID={{ .Data.data.value }}
+          {{- end }}
+          {{- with secret "secret/data/idrac-kvm-oauth2-proxy-client-secret" -}}
+          OAUTH2_PROXY_CLIENT_SECRET={{ .Data.data.value }}
+          {{- end }}
+          {{- with secret "secret/data/idrac-kvm-oauth2-proxy-cookie-secret" -}}
+          OAUTH2_PROXY_COOKIE_SECRET={{ .Data.data.value }}
+          {{- end }}
+    spec:
+      serviceAccountName: idrac6-console
+      containers:
+        - name: oauth2-proxy
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.13.0
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -a
+              [ -f /vault/secrets/oauth2.env ] && . /vault/secrets/oauth2.env
+              exec oauth2-proxy "$@"
+          args:
+            - "--upstream=http://idrac6-console.teleport.svc.cluster.local:80"
+            - "--http-address=0.0.0.0:4180"
+            - "--cookie-secure=true"
+            - "--cookie-samesite=lax"
+            - "--provider=github"
+            - "--email-domain=*"
+            - "--cookie-refresh=24h"
+            - "--cookie-expire=168h"
+          ports:
+            - name: http
+              containerPort: 4180
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: idrac6-oauth2-proxy
+  namespace: teleport
+spec:
+  selector:
+    app: idrac6-oauth2-proxy
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
 # ============================
 # Teleport config (ConfigMap)
 # ============================
@@ -937,7 +1014,7 @@ data:
               - "Host: 10.0.2.10"
 
         - name: idrac-vnc
-          uri: http://idrac6-console.teleport.svc.cluster.local
+          uri: http://idrac6-oauth2-proxy.teleport.svc.cluster.local
           public_addr: idrac-vnc.teleport.app.suncoast.systems
 
       resources:
