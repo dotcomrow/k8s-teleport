@@ -722,21 +722,23 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: idrac6-vault-bootstrap-v4
+  name: idrac6-vault-bootstrap
   namespace: teleport
   annotations:
     argocd.argoproj.io/sync-options: Replace=true
   labels:
-    app: idrac6-vault-bootstrap-v4
+    app: idrac6-vault-bootstrap
 spec:
   backoffLimit: 2
   selector:
     matchLabels:
-      app: idrac6-vault-bootstrap-v4
+      app: idrac6-vault-bootstrap
+      job-name: idrac6-vault-bootstrap
   template:
     metadata:
       labels:
-        app: idrac6-vault-bootstrap-v4
+        app: idrac6-vault-bootstrap
+        job-name: idrac6-vault-bootstrap
     spec:
       serviceAccountName: idrac6-vault-setup
       restartPolicy: Never
