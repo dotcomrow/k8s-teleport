@@ -730,6 +730,9 @@ metadata:
     app: idrac6-vault-bootstrap
 spec:
   backoffLimit: 2
+  selector:
+    matchLabels:
+      app: idrac6-vault-bootstrap
   template:
     metadata:
       labels:
