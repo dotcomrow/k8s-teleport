@@ -1021,6 +1021,10 @@ data:
         - name: idrac-vnc
           uri: http://idrac6-oauth2-proxy.teleport.svc.cluster.local
           public_addr: idrac-vnc.teleport.app.suncoast.systems
+          rewrite:
+            headers:
+              - "Host: idrac-vnc.teleport.app.suncoast.systems"
+              - "X-Forwarded-Proto: https"
 
       resources:
         - labels:
