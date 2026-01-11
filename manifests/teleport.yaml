@@ -388,7 +388,11 @@ spec:
               apk add --no-cache jq >/dev/null
               echo "Copying vault-root-token from vault -> teleport"
               kubectl get secret vault-root-token -n vault -o json \
-                | jq '.metadata.namespace="teleport" | del(.metadata.uid,.metadata.resourceVersion,.metadata.creationTimestamp,.metadata.managedFields,.metadata.annotations,.metadata.ownerReferences,.metadata.finalizers,.metadata.generateName,.metadata.selfLink,.metadata.generation,.metadata.labels,.metadata.annotations)' \
+                | jq '
+                    .metadata.namespace="teleport"
+                    | del(.metadata.uid,.metadata.resourceVersion,.metadata.creationTimestamp,.metadata.managedFields,.metadata.annotations,.metadata.ownerReferences,.metadata.finalizers,.metadata.generateName,.metadata.selfLink,.metadata.generation,.metadata.labels,.metadata.annotations)
+                    | ( .data.token //= ( .data | to_entries | (.[0].value // "") ) )
+                  ' \
                 | kubectl apply -f -
               echo "Secret copied successfully."
 ---
