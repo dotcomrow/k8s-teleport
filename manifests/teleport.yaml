@@ -366,7 +366,7 @@ metadata:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: copy-drools-vault-root-token
+  name: copy-teleport-vault-root-token
   namespace: vault
   annotations:
     argocd.argoproj.io/hook: PreSync
