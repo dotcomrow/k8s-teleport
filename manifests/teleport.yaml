@@ -1378,6 +1378,11 @@ spec:
           enable: true
           config:
             regex_uri: ["^/pgweb(/.*)?$", "/$1"]
+        - name: response-rewrite
+          enable: true
+          config:
+            headers:
+              - "Content-Security-Policy: base-uri 'self'; connect-src 'self' wss:; default-src 'self'; font-src 'self' data:; form-action 'self'; frame-ancestors 'self' https://gravitee-management.teleport.app.suncoast.systems https://teleport.app.suncoast.systems; img-src 'self' data: blob:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline';"
 ---
 # ============================
 # Teleport bootstrap resources
