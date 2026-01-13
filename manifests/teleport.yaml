@@ -1355,7 +1355,6 @@ metadata:
   annotations:
     apisix.apache.org/timeout: "950"
     apisix.apache.org/websocket: "true"
-    apisix.apache.org/enable-cors: "true"
 spec:
   ingressClassName: apisix
   http:
