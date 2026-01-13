@@ -1355,6 +1355,7 @@ metadata:
   annotations:
     apisix.apache.org/timeout: "950"
     apisix.apache.org/websocket: "true"
+    apisix.apache.org/enable-cors: "true"
 spec:
   ingressClassName: apisix
   http:
@@ -1377,15 +1378,6 @@ spec:
           enable: true
           config:
             regex_uri: ["^/pgweb(/.*)?$", "/$1"]
-        - name: cors
-          enable: true
-          config:
-            allow_origins_by_regex:
-              - "^https://([a-zA-Z0-9-]+\\.)*teleport\\.app\\.suncoast\\.systems$"
-            allow_methods: "GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD"
-            allow_headers: "Authorization,Content-Type,Accept,Origin,X-Requested-With,Cache-Control,Pragma,User-Agent"
-            allow_credential: true
-            max_age: 86400
         - name: response-rewrite
           enable: true
           config:
