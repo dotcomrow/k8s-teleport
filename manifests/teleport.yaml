@@ -1339,6 +1339,8 @@ kind: ApisixUpstream
 metadata:
   name: teleport
   namespace: teleport
+  annotations:
+    teleport.app.suncoast.systems/upstream-redeploy: "2026-01-13T23:25:00Z"
 spec:
   scheme: https
   passHost: pass
