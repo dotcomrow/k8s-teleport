@@ -1342,12 +1342,18 @@ metadata:
   annotations:
     teleport.app.suncoast.systems/upstream-redeploy: "2026-01-13T23:25:00Z"
 spec:
+  ingressClassName: apisix
   scheme: https
   passHost: pass
   timeout:
     connect: 10s
     send: 3600s
     read: 3600s
+  externalNodes:
+    - name: teleport.teleport.svc.cluster.local
+      type: Domain
+      port: 3080
+      weight: 1
 ---
 apiVersion: apisix.apache.org/v2
 kind: ApisixRoute
@@ -1368,9 +1374,9 @@ spec:
           - "*.teleport.app.suncoast.systems"
           - "teleport.app.suncoast.systems"
         paths: ["/*"]
-      backends:
-        - serviceName: teleport
-          servicePort: 3080
+      upstreams:
+        - name: teleport
+          weight: 1
       plugins:
         - name: client-control
           enable: true
