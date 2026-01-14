@@ -282,7 +282,6 @@ spec:
   replicas: 1
   updateStrategy:
     type: OnDelete
-    rollingUpdate: null
   selector:
     matchLabels:
       app: etcd
@@ -549,6 +548,8 @@ metadata:
   namespace: teleport
   labels:
     app: idrac-bridge
+  annotations:
+    reloader.stakater.com/auto: "true"
 spec:
   replicas: 1
   strategy:
@@ -806,6 +807,8 @@ metadata:
   namespace: teleport
   labels:
     app: idrac6-console
+  annotations:
+    reloader.stakater.com/auto: "true"
 spec:
   replicas: 1
   selector:
@@ -884,6 +887,8 @@ metadata:
   namespace: teleport
   labels:
     app: idrac6-oauth2-proxy
+  annotations:
+    reloader.stakater.com/auto: "true"
 spec:
   replicas: 1
   selector:
@@ -1034,8 +1039,10 @@ data:
 
     auth_service:
       message_of_the_day: |
-        Welcome to the Suncoast Teleport Cluster
-        Authorized use only. All Activity is monitored, recorded, and audited.
+        This system is the property of Suncoast Systems and is intended for authorized use only.
+        Unauthorized access or use is prohibited.
+        All activities on this system may be monitored, recorded, and reviewed.
+        By accessing this system, you acknowledge and consent to such monitoring.
       enabled: true
       listen_addr: 0.0.0.0:3025
       proxy_protocol: off
@@ -1088,7 +1095,6 @@ spec:
   serviceName: teleport-headless
   updateStrategy:
     type: OnDelete
-    rollingUpdate: null
   selector:
     matchLabels:
       app: teleport
@@ -1339,8 +1345,6 @@ kind: ApisixUpstream
 metadata:
   name: teleport
   namespace: teleport
-  annotations:
-    teleport.app.suncoast.systems/upstream-redeploy: "2026-01-13T23:25:00Z"
 spec:
   ingressClassName: apisix
   scheme: https
