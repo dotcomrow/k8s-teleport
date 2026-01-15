@@ -1095,6 +1095,8 @@ metadata:
   namespace: teleport
   labels:
     app: teleport
+  annotations:
+    reloader.stakater.com/auto: "true"
 spec:
   replicas: 2
   serviceName: teleport-headless
