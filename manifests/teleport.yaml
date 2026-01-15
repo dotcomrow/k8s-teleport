@@ -33,9 +33,9 @@ metadata:
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     argocd.argoproj.io/sync-wave: "-2"
 rules:
-- apiGroups: [""]
-  resources: ["secrets"]
-  verbs: ["get","create","update","patch","delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get","create","update","patch","delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -47,9 +47,9 @@ metadata:
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     argocd.argoproj.io/sync-wave: "-2"
 subjects:
-- kind: ServiceAccount
-  name: etcd-tls-bootstrap
-  namespace: teleport
+  - kind: ServiceAccount
+    name: etcd-tls-bootstrap
+    namespace: teleport
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -67,12 +67,12 @@ kind: ClusterRole
 metadata:
   name: teleport-kube-impersonator
 rules:
-- apiGroups: [""]
-  resources: ["users","groups","serviceaccounts"]
-  verbs: ["impersonate"]
-- apiGroups: ["authentication.k8s.io"]
-  resources: ["userextras/*"]
-  verbs: ["impersonate"]
+  - apiGroups: [""]
+    resources: ["users","groups","serviceaccounts"]
+    verbs: ["impersonate"]
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["userextras/*"]
+    verbs: ["impersonate"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -83,9 +83,9 @@ roleRef:
   kind: ClusterRole
   name: teleport-kube-impersonator
 subjects:
-- kind: ServiceAccount
-  name: teleport-sa
-  namespace: teleport
+  - kind: ServiceAccount
+    name: teleport-sa
+    namespace: teleport
 ---
 # Service discovery for auto-registration of annotated services
 apiVersion: rbac.authorization.k8s.io/v1
@@ -93,12 +93,12 @@ kind: ClusterRole
 metadata:
   name: teleport-service-discovery
 rules:
-- apiGroups: [""]
-  resources: ["services", "endpoints"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["namespaces"]
-  verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -109,9 +109,9 @@ roleRef:
   kind: ClusterRole
   name: teleport-service-discovery
 subjects:
-- kind: ServiceAccount
-  name: teleport-sa
-  namespace: teleport
+  - kind: ServiceAccount
+    name: teleport-sa
+    namespace: teleport
 ---
 # ============================
 # Watchdog RBAC (allow pod self-delete for auto-restart)
@@ -122,9 +122,9 @@ metadata:
   name: teleport-self-kill
   namespace: teleport
 rules:
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get","delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get","delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -132,9 +132,9 @@ metadata:
   name: teleport-self-kill-binding
   namespace: teleport
 subjects:
-- kind: ServiceAccount
-  name: teleport-sa
-  namespace: teleport
+  - kind: ServiceAccount
+    name: teleport-sa
+    namespace: teleport
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -681,11 +681,16 @@ spec:
 # ============================
 # iDRAC6 HTML5/VNC console (domistyle/idrac6) with Vault-injected creds
 # ============================
+# FIX: make the SA a PreSync hook (and earlier wave) so Argo creates it BEFORE the Sync hook job.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: idrac6-vault-setup
   namespace: teleport
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-3"
 ---
 apiVersion: batch/v1
 kind: Job
@@ -708,7 +713,7 @@ spec:
           command: ["/bin/sh","-c"]
           args:
             - |
-              set -euo pipefail
+              set -eu
               apk add --no-cache jq >/dev/null
               echo "Copying vault-root-token from vault -> teleport"
               kubectl get secret vault-root-token -n vault -o json \
@@ -757,7 +762,7 @@ spec:
             - /bin/sh
             - -c
             - |
-              set -euo pipefail
+              set -eu
 
               vault status >/dev/null
 
@@ -1140,15 +1145,21 @@ spec:
         - name: teleport
           image: public.ecr.aws/gravitational/teleport-distroless:18.1.4
           imagePullPolicy: IfNotPresent
-          command: ["teleport","start","-c","/etc/teleport/teleport.yaml","--bootstrap=/bootstrap/initial_config.yaml","--apply-on-startup=/bootstrap/additional.yaml"]
+          command:
+            - teleport
+            - start
+            - -c
+            - /etc/teleport/teleport.yaml
+            - --bootstrap=/bootstrap/initial_config.yaml
+            - --apply-on-startup=/bootstrap/additional.yaml
           ports:
             - { name: auth, containerPort: 3025 }
             - { name: web,  containerPort: 3080 }
           volumeMounts:
-            - { name: teleport-config,   mountPath: /etc/teleport,    readOnly: true }
-            - { name: teleport-data,     mountPath: /var/lib/teleport }
-            - { name: etcd-ca,           mountPath: /etc/etcd-ca,     readOnly: true }
-            - { name: teleport-bootstrap,mountPath: /bootstrap,        readOnly: true }
+            - { name: teleport-config,    mountPath: /etc/teleport, readOnly: true }
+            - { name: teleport-data,      mountPath: /var/lib/teleport }
+            - { name: etcd-ca,            mountPath: /etc/etcd-ca,  readOnly: true }
+            - { name: teleport-bootstrap, mountPath: /bootstrap,    readOnly: true }
           readinessProbe:
             tcpSocket: { port: 3080 }
             initialDelaySeconds: 5
@@ -1186,17 +1197,14 @@ spec:
                   -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" "$@"
               }
 
-              # Common curl flags: HTTP/1.1, short timeout, quiet but strict on failures.
               CURL_COMMON="--http1.1 --max-time 4 -sS"
 
-              # Pin DNS per loop to avoid transient resolver blips.
               pin_resolve_args() {
                 [ "$PIN_DNS" = "1" ] || return 0
                 ip="$(getent hosts "$HOST" | awk '{print $1}' | head -1 || true)"
                 [ -n "$ip" ] && printf -- "--resolve %s:443:%s" "$HOST" "$ip"
               }
 
-              # ----- Checks -------------------------------------------------------
               check_ping_http_jsonish() {
                 [ "$BYPASS_PING" = "1" ] && return 0
                 local code ctype body
@@ -1207,7 +1215,6 @@ spec:
 
                 [ "${VERBOSE}" = "1" ] && { echo "ping code=${code} ctype=${ctype}"; echo "ping body(head):"; echo "$body" | head -2; }
 
-                # Accept 200 with JSON (by parse or content-type) OR common 3xx auth redirects.
                 if [ "$code" = "200" ]; then
                   printf '%s' "$body" | jq -e . >/dev/null 2>&1 && return 0
                   case "$ctype" in *application/json*|*+json*) return 0 ;; esac
@@ -1232,12 +1239,11 @@ spec:
               }
 
               check_alpn_mux() {
-                [ "$ENABLE_ALPN" = "1" ] || return 0  # treat as OK when disabled
+                [ "$ENABLE_ALPN" = "1" ] || return 0
                 openssl s_client -connect "${HOST}:443" -servername "${HOST}" -alpn teleport-ssh -brief </dev/null 2>/dev/null \
                   | awk 'BEGIN{ok=0} /ALPN protocol:\s*teleport-ssh/{ok=1} END{exit !ok}'
               }
 
-              # ----- Main loop ----------------------------------------------------
               while :; do
                 ok_any=0
                 pass=""
@@ -1270,18 +1276,17 @@ spec:
               valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
             - name: HOST
               value: "teleport.app.suncoast.systems"
-            # Tuning knobs (safe defaults)
             - name: THRESH
               value: "3"
             - name: SLEEP
               value: "30"
-            - name: ENABLE_ALPN     # keep "0" unless Teleport listens on :443 with ALPN mux
+            - name: ENABLE_ALPN
               value: "0"
             - name: VERBOSE
               value: "0"
-            - name: PIN_DNS         # recommended "1" to smooth transient DNS misses
+            - name: PIN_DNS
               value: "1"
-            - name: BYPASS_PING     # set "1" if your proxy always mangles /webapi/ping
+            - name: BYPASS_PING
               value: "0"
   volumeClaimTemplates:
     - metadata:
@@ -1487,5 +1492,5 @@ data:
       join_method: gcp
       gcp:
         allow:
-        - project_ids: ["<path:secret/data/k8s-teleport-vault-project-id#value>"]
-          service_accounts: ["<path:secret/data/k8s-teleport-vault-service-account#value>"]
+          - project_ids: ["<path:secret/data/k8s-teleport-vault-project-id#value>"]
+            service_accounts: ["<path:secret/data/k8s-teleport-vault-service-account#value>"]
