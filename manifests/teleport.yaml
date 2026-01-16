@@ -992,6 +992,8 @@ data:
               - "Origin: https://k8s.teleport.app.suncoast.systems"
 
         - name: harbor-console
+          labels:
+            team: admin
           uri: https://10.0.0.10
           public_addr: harbor.teleport.app.suncoast.systems
           insecure_skip_verify: true
@@ -1000,6 +1002,8 @@ data:
               - "Host: harbor.teleport.app.suncoast.systems"
 
         - name: harbor-dex
+          labels:
+            team: admin
           uri: https://10.0.0.10
           public_addr: harbor-dex.teleport.app.suncoast.systems
           insecure_skip_verify: true
@@ -1008,6 +1012,8 @@ data:
               - "Host: harbor-dex.teleport.app.suncoast.systems"
 
         - name: pfsense
+          labels:
+            team: admin
           uri: https://10.0.0.10
           public_addr: pfsense.teleport.app.suncoast.systems
           insecure_skip_verify: true
@@ -1016,6 +1022,8 @@ data:
               - "Host: pfsense.suncoast.systems"
 
         - name: proxmox
+          labels:
+            team: admin
           uri: https://10.0.0.10
           public_addr: proxmox.teleport.app.suncoast.systems
           insecure_skip_verify: true
@@ -1024,6 +1032,8 @@ data:
               - "Host: proxmox.suncoast.systems"
 
         - name: idrac
+          labels:
+            team: admin
           uri: http://idrac-bridge.teleport.svc.cluster.local:8080
           public_addr: idrac.teleport.app.suncoast.systems
           rewrite:
@@ -1031,6 +1041,8 @@ data:
               - "Host: 10.0.2.10"
 
         - name: idrac-vnc
+          labels:
+            team: admin
           uri: http://idrac6-oauth2-proxy.teleport.svc.cluster.local
           public_addr: idrac-vnc.teleport.app.suncoast.systems
           rewrite:
@@ -1069,6 +1081,8 @@ data:
       enabled: true
       listen_addr: 127.0.0.1:3026
       kube_cluster_name: local
+      labels:
+        team: admin
 
     discovery_service:
       enabled: true
@@ -1452,6 +1466,18 @@ data:
           - resources: ["*"]
             verbs: ["*"]
         kubernetes_groups: ["system:masters"]
+
+    ---
+    kind: role
+    version: v7
+    metadata:
+      name: access
+    spec:
+      options:
+        max_session_ttl: 8h0m0s
+      allow:
+        app_labels:
+          team: ["access"]
 
     ---
     kind: github
