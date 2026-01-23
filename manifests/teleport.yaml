@@ -979,17 +979,6 @@ data:
         tls_cert_file: /etc/etcd-ca/client.crt
         tls_key_file:  /etc/etcd-ca/client.key
 
-    db_service:
-      enabled: true
-      resources:
-        - labels:
-            "teleport.dev/kubernetes-cluster": "main-cluster"
-            "teleport.dev/origin": "discovery-kubernetes"
-      databases:
-        - name: yugabyte
-          protocol: postgres
-          uri: yb-tserver-service.yugabyte.svc.cluster.local:5433
-
     app_service:
       enabled: true
       apps:
@@ -1468,7 +1457,8 @@ data:
         max_session_ttl: 8h0m0s
       allow:
         node_labels: {"*":"*"}
-        db_labels: {"*":"*"}
+        db_labels:
+          team: ["admin"]
         db_users: ["vaultadmin"]
         db_names: ["*"]
         app_labels: {"*":"*"}
@@ -1520,7 +1510,8 @@ data:
         max_session_ttl: 8h0m0s
       allow:
         node_labels: {"*":"*"}
-        db_labels: {"*":"*"}
+        db_labels:
+          team: ["admin"]
         db_users: ["vaultadmin"]
         db_names: ["*"]
         app_labels: {"*":"*"}
