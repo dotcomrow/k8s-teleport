@@ -1469,6 +1469,8 @@ data:
       allow:
         node_labels: {"*":"*"}
         db_labels: {"*":"*"}
+        db_users: ["vaultadmin"]
+        db_names: ["*"]
         app_labels: {"*":"*"}
         kubernetes_labels: {"*":"*"}
         windows_desktop_labels: {"*":"*"}
