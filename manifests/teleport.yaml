@@ -1171,7 +1171,7 @@ spec:
       containers:
         - name: teleport
           image: public.ecr.aws/gravitational/teleport-distroless:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           command:
             - teleport
             - start
