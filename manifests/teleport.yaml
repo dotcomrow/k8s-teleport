@@ -985,6 +985,10 @@ data:
         - labels:
             "teleport.dev/kubernetes-cluster": "main-cluster"
             "teleport.dev/origin": "discovery-kubernetes"
+      databases:
+        - name: yugabyte
+          protocol: postgres
+          uri: yb-tserver-service.yugabyte.svc.cluster.local:5433
 
     app_service:
       enabled: true
@@ -1097,7 +1101,7 @@ data:
       # Configure discovery polling intervals
       poll_interval: 30s        # How often to do full reconciliation scans
       kubernetes:
-        - types: ["app", "db"]
+        - types: ["app"]
           namespaces: ["*"]
           # Only discover services with Teleport annotations
           labels:
@@ -1166,7 +1170,7 @@ spec:
             name: teleport-bootstrap
       containers:
         - name: teleport
-          image: public.ecr.aws/gravitational/teleport-distroless:18.1.4
+          image: public.ecr.aws/gravitational/teleport-distroless:latest
           imagePullPolicy: IfNotPresent
           command:
             - teleport
