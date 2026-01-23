@@ -1513,6 +1513,27 @@ data:
     ---
     kind: role
     version: v7
+    metadata:
+      name: admin
+    spec:
+      options:
+        max_session_ttl: 8h0m0s
+      allow:
+        node_labels: {"*":"*"}
+        db_labels: {"*":"*"}
+        db_users: ["vaultadmin"]
+        db_names: ["*"]
+        app_labels: {"*":"*"}
+        kubernetes_labels: {"*":"*"}
+        windows_desktop_labels: {"*":"*"}
+        logins: ["root","ubuntu"]
+        rules:
+          - resources: ["*"]
+            verbs: ["*"]
+        kubernetes_groups: ["system:masters"]
+    ---
+    kind: role
+    version: v7
     metadata: { name: vault-app-bot }
     spec:
       allow:
