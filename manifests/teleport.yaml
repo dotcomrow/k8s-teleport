@@ -979,6 +979,13 @@ data:
         tls_cert_file: /etc/etcd-ca/client.crt
         tls_key_file:  /etc/etcd-ca/client.key
 
+    db_service:
+      enabled: true
+      resources:
+        - labels:
+            "teleport.dev/kubernetes-cluster": "main-cluster"
+            "teleport.dev/origin": "discovery-kubernetes"
+
     app_service:
       enabled: true
       apps:
@@ -1090,7 +1097,7 @@ data:
       # Configure discovery polling intervals
       poll_interval: 30s        # How often to do full reconciliation scans
       kubernetes:
-        - types: ["app"]
+        - types: ["app", "db"]
           namespaces: ["*"]
           # Only discover services with Teleport annotations
           labels:
