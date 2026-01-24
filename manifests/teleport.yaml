@@ -1008,7 +1008,8 @@ data:
     app_service:
       enabled: true
       apps:
-        - name: k8s-mgmt-console
+        - name: rancher-console
+          description: Rancher Kubernetes management console.
           uri: https://rancher.cattle-system.svc.cluster.local
           public_addr: k8s.teleport.app.suncoast.systems
           insecure_skip_verify: true
@@ -1018,6 +1019,7 @@ data:
               - "Origin: https://k8s.teleport.app.suncoast.systems"
 
         - name: harbor-console
+          description: Harbor container registry UI.
           labels:
             team: admin
           uri: https://10.0.0.10
@@ -1028,6 +1030,7 @@ data:
               - "Host: harbor.teleport.app.suncoast.systems"
 
         - name: harbor-dex
+          description: Harbor SSO login (Dex).
           labels:
             team: admin
           uri: https://10.0.0.10
@@ -1038,6 +1041,7 @@ data:
               - "Host: harbor-dex.teleport.app.suncoast.systems"
 
         - name: pfsense
+          description: pfSense firewall admin UI.
           labels:
             team: admin
           uri: https://10.0.0.10
@@ -1048,6 +1052,7 @@ data:
               - "Host: pfsense.suncoast.systems"
 
         - name: proxmox
+          description: Proxmox virtualization management UI.
           labels:
             team: admin
           uri: https://10.0.0.10
@@ -1058,6 +1063,7 @@ data:
               - "Host: proxmox.suncoast.systems"
 
         - name: idrac
+          description: Dell iDRAC BMC web console (via bridge).
           labels:
             team: admin
           uri: http://idrac-bridge.teleport.svc.cluster.local:8080
@@ -1067,6 +1073,7 @@ data:
               - "Host: 10.0.2.10"
 
         - name: idrac-vnc
+          description: Dell iDRAC VNC console (via OAuth2 proxy).
           labels:
             team: admin
           uri: http://idrac6-oauth2-proxy.teleport.svc.cluster.local
