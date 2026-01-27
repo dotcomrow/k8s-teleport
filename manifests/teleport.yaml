@@ -1427,7 +1427,7 @@ metadata:
   annotations:
     apisix.apache.org/timeout: "950"
     apisix.apache.org/websocket: "true"
-    teleport.app.suncoast.systems/redeploy: "2026-01-13T23:15:00Z"
+    teleport.app.suncoast.systems/redeploy: "2026-01-14T23:15:00Z"
 spec:
   ingressClassName: apisix
   http:
