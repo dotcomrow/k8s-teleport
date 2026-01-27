@@ -343,6 +343,9 @@ spec:
             - --initial-cluster=etcd-0=https://etcd-0.etcd.teleport.svc.cluster.local:2380
             - --initial-cluster-state=new
             - --initial-cluster-token=etcd-cluster-1
+            - --auto-compaction-mode=periodic
+            - --auto-compaction-retention=1h
+            - --quota-backend-bytes=8589934592
             - --logger=zap
             - --log-level=info
             - --client-cert-auth=false
