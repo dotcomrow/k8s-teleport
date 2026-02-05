@@ -1260,13 +1260,6 @@ spec:
               VERBOSE="${VERBOSE:-0}"
               PIN_DNS="${PIN_DNS:-0}"           # set "1" to pin DNS each loop via curl --resolve
               BYPASS_PING="${BYPASS_PING:-0}"   # set "1" to skip /webapi/ping entirely
-          resources:
-            requests:
-              cpu: "50m"
-              memory: "128Mi"
-            limits:
-              cpu: "200m"
-              memory: "256Mi"
 
               api() {
                 curl -fsS --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
@@ -1364,6 +1357,13 @@ spec:
               value: "1"
             - name: BYPASS_PING
               value: "0"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
   volumeClaimTemplates:
     - metadata:
         name: teleport-data
