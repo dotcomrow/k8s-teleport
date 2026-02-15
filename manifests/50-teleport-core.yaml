@@ -633,6 +633,3 @@ data:
           registration_secret: "<path:secret/data/k8s-teleport-terraform-vault-bot-registration-secret#value>"
         recovery:
           mode: insecure
-    status:
-      bound_keypair:
-        registration_secret: "<path:secret/data/k8s-teleport-terraform-vault-bot-registration-secret#value>"
