@@ -613,3 +613,22 @@ data:
         allow:
           - project_ids: ["<path:secret/data/k8s-teleport-vault-project-id#value>"]
             service_accounts: ["<path:secret/data/k8s-teleport-vault-service-account#value>"]
+    ---
+    kind: bot
+    version: v1
+    metadata: { name: terraform-vault-bot }
+    spec: { roles: [vault-app-bot] }
+    ---
+    kind: token
+    version: v2
+    metadata: { name: terraform-vault-bot-token }
+    spec:
+      roles: [Bot]
+      bot_name: terraform-vault-bot
+      join_method: bound_keypair
+      bound_keypair:
+        onboarding:
+          registration_secret: "<path:secret/data/k8s-teleport-terraform-vault-bot-registration-secret#value>"
+        recovery:
+          mode: relaxed
+          limit: 1
