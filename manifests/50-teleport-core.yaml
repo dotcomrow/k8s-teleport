@@ -619,7 +619,7 @@ data:
     metadata: { name: terraform-vault-bot }
     spec:
       roles: [vault-app-bot]
-      max_session_ttl: 168h0m0s
+      max_session_ttl: 604800s
     ---
     kind: token
     version: v2
