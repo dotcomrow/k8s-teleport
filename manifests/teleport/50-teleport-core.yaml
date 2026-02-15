@@ -1,0 +1,615 @@
+---
+# ============================
+# Teleport config (ConfigMap)
+# ============================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: teleport-config
+  namespace: teleport
+data:
+  teleport.yaml: |
+    version: v3
+    teleport:
+      data_dir: /var/lib/teleport
+      log:
+        output: stderr
+        severity: INFO
+      storage:
+        type: etcd
+        peers:
+          - https://etcd-0.etcd.teleport.svc.cluster.local:2379
+        prefix: /teleport/
+        tls_ca_file:   /etc/etcd-ca/ca.crt
+        tls_cert_file: /etc/etcd-ca/client.crt
+        tls_key_file:  /etc/etcd-ca/client.key
+
+    app_service:
+      enabled: true
+      apps:
+        - name: rancher-console
+          description: Rancher Kubernetes management console.
+          uri: https://rancher.cattle-system.svc.cluster.local
+          public_addr: k8s.teleport.app.suncoast.systems
+          insecure_skip_verify: true
+          rewrite:
+            headers:
+              - "Host: k8s.teleport.app.suncoast.systems"
+              - "Origin: https://k8s.teleport.app.suncoast.systems"
+
+        - name: harbor-console
+          description: Harbor container registry UI.
+          labels:
+            team: admin
+          uri: https://10.0.0.10
+          public_addr: harbor.teleport.app.suncoast.systems
+          insecure_skip_verify: true
+          rewrite:
+            headers:
+              - "Host: harbor.teleport.app.suncoast.systems"
+
+        - name: harbor-dex
+          description: Harbor SSO login (Dex).
+          labels:
+            team: admin
+          uri: https://10.0.0.10
+          public_addr: harbor-dex.teleport.app.suncoast.systems
+          insecure_skip_verify: true
+          rewrite:
+            headers:
+              - "Host: harbor-dex.teleport.app.suncoast.systems"
+
+        - name: pfsense
+          description: pfSense firewall admin UI.
+          labels:
+            team: admin
+          uri: https://10.0.0.10
+          public_addr: pfsense.teleport.app.suncoast.systems
+          insecure_skip_verify: true
+          rewrite:
+            headers:
+              - "Host: pfsense.suncoast.systems"
+
+        - name: proxmox
+          description: Proxmox virtualization management UI.
+          labels:
+            team: admin
+          uri: https://10.0.0.10
+          public_addr: proxmox.teleport.app.suncoast.systems
+          insecure_skip_verify: true
+          rewrite:
+            headers:
+              - "Host: proxmox.suncoast.systems"
+
+        - name: idrac
+          description: Dell iDRAC BMC web console (via bridge).
+          labels:
+            team: admin
+          uri: http://idrac-bridge.teleport.svc.cluster.local:8080
+          public_addr: idrac.teleport.app.suncoast.systems
+          rewrite:
+            headers:
+              - "Host: 10.0.2.10"
+
+        - name: idrac-vnc
+          description: Dell iDRAC VNC console (via OAuth2 proxy).
+          labels:
+            team: admin
+          uri: http://idrac6-oauth2-proxy.teleport.svc.cluster.local
+          public_addr: idrac-vnc.teleport.app.suncoast.systems
+          rewrite:
+            headers:
+              - "Host: idrac-vnc.teleport.app.suncoast.systems"
+
+      resources:
+        - labels:
+            "teleport.dev/kubernetes-cluster": "main-cluster"
+            "teleport.dev/origin": "discovery-kubernetes"
+
+    auth_service:
+      message_of_the_day: |
+        This system is the property of Suncoast Systems and is intended for authorized use only.
+        Unauthorized access or use is prohibited.
+        All activities on this system may be monitored, recorded, and reviewed.
+        By accessing this system, you acknowledge and consent to such monitoring.
+      enabled: true
+      listen_addr: 0.0.0.0:3025
+      proxy_protocol: off
+      cluster_name: suncoast-teleport
+      proxy_listener_mode: multiplex
+      authentication:
+        type: github
+        connector_name: new_github_connector
+        local_auth: false
+        second_factor: otp
+
+    proxy_service:
+      enabled: true
+      web_listen_addr: 0.0.0.0:3080
+      public_addr: ["teleport.app.suncoast.systems:443"]
+      proxy_protocol: off
+
+    kubernetes_service:
+      enabled: true
+      listen_addr: 127.0.0.1:3026
+      kube_cluster_name: local
+      labels:
+        team: admin
+
+    discovery_service:
+      enabled: true
+      discovery_group: main-cluster
+      # Configure discovery polling intervals
+      poll_interval: 30s        # How often to do full reconciliation scans
+      kubernetes:
+        - types: ["app"]
+          namespaces: ["*"]
+          # Only discover services with Teleport annotations
+          labels:
+            "teleport.dev/enroll": "true"
+
+    ssh_service:
+      enabled: false
+---
+# ============================
+# Teleport StatefulSet (+ watchdog sidecar)
+# ============================
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: teleport
+  namespace: teleport
+  labels:
+    app: teleport
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 2
+  serviceName: teleport-headless
+  updateStrategy:
+    type: OnDelete
+  selector:
+    matchLabels:
+      app: teleport
+  template:
+    metadata:
+      labels:
+        app: teleport
+    spec:
+      serviceAccountName: teleport-sa
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: dedicated
+                    operator: In
+                    values:
+                      - srvr-node
+      initContainers:
+        - name: wait-for-etcd
+          image: busybox:1.36
+          command: ["/bin/sh","-c"]
+          args:
+            - |
+              host="etcd-0.etcd.teleport.svc.cluster.local"
+              echo "Waiting for DNS: $host"
+              until nslookup "$host" >/dev/null 2>&1; do sleep 2; done
+              echo "Waiting for TCP 2379 on $host"
+              until nc -z "$host" 2379 >/dev/null 2>&1; do sleep 2; done
+              echo "etcd is up"
+      volumes:
+        - name: teleport-config
+          configMap:
+            name: teleport-config
+        - name: etcd-ca
+          secret:
+            secretName: etcd-tls
+        - name: teleport-bootstrap
+          configMap:
+            name: teleport-bootstrap
+      containers:
+        - name: teleport
+          image: public.ecr.aws/gravitational/teleport-distroless:18.6.4
+          imagePullPolicy: Always
+          command:
+            - teleport
+            - start
+            - -c
+            - /etc/teleport/teleport.yaml
+            - --bootstrap=/bootstrap/initial_config.yaml
+            - --apply-on-startup=/bootstrap/additional.yaml
+          ports:
+            - { name: auth, containerPort: 3025 }
+            - { name: web,  containerPort: 3080 }
+          resources:
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+          volumeMounts:
+            - { name: teleport-config,    mountPath: /etc/teleport, readOnly: true }
+            - { name: teleport-data,      mountPath: /var/lib/teleport }
+            - { name: etcd-ca,            mountPath: /etc/etcd-ca,  readOnly: true }
+            - { name: teleport-bootstrap, mountPath: /bootstrap,    readOnly: true }
+          readinessProbe:
+            tcpSocket: { port: 3080 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: { port: 3080 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+
+        # Watchdog: restart pod if /webapi/connectionupgrade doesn't return 101
+        - name: teleport-guard
+          image: alpine:3.20
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh","-lc"]
+          args:
+            - |
+              set -eu
+              apk add --no-cache curl jq openssl >/dev/null
+
+              HOST="${HOST:-teleport.app.suncoast.systems}"
+              BASE_URL="https://${HOST}"
+              PING_PATH="${PING_PATH:-/webapi/ping}"
+              WS_PATH="${WS_PATH:-/webapi/connectionupgrade}"
+
+              FAILS=0
+              THRESH="${THRESH:-3}"
+              SLEEP="${SLEEP:-30}"
+              ENABLE_ALPN="${ENABLE_ALPN:-0}"   # set "1" only if Teleport ALPN mux is really on :443
+              VERBOSE="${VERBOSE:-0}"
+              PIN_DNS="${PIN_DNS:-0}"           # set "1" to pin DNS each loop via curl --resolve
+              BYPASS_PING="${BYPASS_PING:-0}"   # set "1" to skip /webapi/ping entirely
+
+              api() {
+                curl -fsS --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
+                  -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" "$@"
+              }
+
+              CURL_COMMON="--http1.1 --max-time 4 -sS"
+
+              pin_resolve_args() {
+                [ "$PIN_DNS" = "1" ] || return 0
+                ip="$(getent hosts "$HOST" | awk '{print $1}' | head -1 || true)"
+                [ -n "$ip" ] && printf -- "--resolve %s:443:%s" "$HOST" "$ip"
+              }
+
+              check_ping_http_jsonish() {
+                [ "$BYPASS_PING" = "1" ] && return 0
+                local code ctype body
+                code="$(curl $CURL_COMMON $(pin_resolve_args) -o /tmp/ping.out -D - -w '%{http_code}' \
+                        "${BASE_URL}${PING_PATH}" || true)"
+                ctype="$(sed -n 's/^[Cc]ontent-[Tt]ype:[[:space:]]*\(.*\)$/\1/p' /tmp/ping.out | head -1 || true)"
+                body="$(sed '1,/^\r\?$/d' /tmp/ping.out || true)"
+
+                [ "${VERBOSE}" = "1" ] && { echo "ping code=${code} ctype=${ctype}"; echo "ping body(head):"; echo "$body" | head -2; }
+
+                if [ "$code" = "200" ]; then
+                  printf '%s' "$body" | jq -e . >/dev/null 2>&1 && return 0
+                  case "$ctype" in *application/json*|*+json*) return 0 ;; esac
+                fi
+                case "$code" in 301|302|303|307|308) return 0 ;; esac
+                return 1
+              }
+
+              check_ws_upgrade() {
+                local hdrs
+                hdrs="$(curl $CURL_COMMON --no-alpn $(pin_resolve_args) -o /dev/null -D - \
+                  -H 'Connection: Upgrade' \
+                  -H 'Upgrade: websocket' \
+                  -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
+                  -H 'Sec-WebSocket-Version: 13' \
+                  -H 'X-Teleport-Upgrade: websocket' \
+                  -w 'HTTP/%{http_version} %{http_code}\n' \
+                  "${BASE_URL}${WS_PATH}" || true)"
+                [ "${VERBOSE}" = "1" ] && echo "ws hdrs:" && echo "$hdrs" | head -5
+                echo "$hdrs" | awk 'BEGIN{ok=0} /HTTP\/1\.[01] 101/{ok=1} END{exit !ok}' || return 1
+                echo "$hdrs" | awk 'BEGIN{ok=0} tolower($0) ~ /^upgrade:\s*websocket/{ok=1} END{exit !ok}' || return 1
+              }
+
+              check_alpn_mux() {
+                [ "$ENABLE_ALPN" = "1" ] || return 0
+                openssl s_client -connect "${HOST}:443" -servername "${HOST}" -alpn teleport-ssh -brief </dev/null 2>/dev/null \
+                  | awk 'BEGIN{ok=0} /ALPN protocol:\s*teleport-ssh/{ok=1} END{exit !ok}'
+              }
+
+              while :; do
+                ok_any=0
+                pass=""
+
+                if check_ws_upgrade; then ok_any=1; pass="${pass} WS"; else echo "teleport-guard: websocket upgrade check failed."; fi
+                if check_ping_http_jsonish; then ok_any=1; pass="${pass} PING"; else echo "teleport-guard: ping not JSON/200 (proxy may be redirecting/login)."; fi
+                if check_alpn_mux; then ok_any=1; pass="${pass} ALPN"; else [ "$ENABLE_ALPN" = "1" ] && echo "teleport-guard: ALPN mux (teleport-ssh) not negotiated."; fi
+
+                if [ "$ok_any" -eq 1 ]; then
+                  [ -n "$pass" ] && echo "teleport-guard: PASS:${pass}"
+                  FAILS=0
+                else
+                  FAILS=$((FAILS+1))
+                  echo "teleport-guard: fail ${FAILS}/${THRESH}"
+                fi
+
+                if [ "$FAILS" -ge "$THRESH" ]; then
+                  echo "teleport-guard: restarting pod ${POD_NAME} (composite health failing)"
+                  api -X DELETE "https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}/api/v1/namespaces/${POD_NAMESPACE}/pods/${POD_NAME}" || true
+                  sleep 300
+                  FAILS=0
+                fi
+
+                sleep "$SLEEP"
+              done
+          env:
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+            - name: POD_NAMESPACE
+              valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+            - name: HOST
+              value: "teleport.app.suncoast.systems"
+            - name: THRESH
+              value: "3"
+            - name: SLEEP
+              value: "30"
+            - name: ENABLE_ALPN
+              value: "0"
+            - name: VERBOSE
+              value: "0"
+            - name: PIN_DNS
+              value: "1"
+            - name: BYPASS_PING
+              value: "0"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+  volumeClaimTemplates:
+    - metadata:
+        name: teleport-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+# Headless service for StatefulSet identity.
+apiVersion: v1
+kind: Service
+metadata:
+  name: teleport-headless
+  namespace: teleport
+spec:
+  clusterIP: None
+  selector:
+    app: teleport
+  ports:
+    - name: web
+      port: 3080
+      targetPort: 3080
+    - name: auth
+      port: 3025
+      targetPort: 3025
+    - name: ssh
+      port: 3023
+      targetPort: 3023
+---
+# ============================
+# Teleport Service (LB for APISIX)
+# ============================
+apiVersion: v1
+kind: Service
+metadata:
+  name: teleport
+  namespace: teleport
+spec:
+  selector:
+    app: teleport
+  ports:
+    - name: web
+      port: 3080
+      targetPort: 3080
+    - name: auth
+      port: 3025
+      targetPort: 3025
+    - name: ssh
+      port: 3023
+      targetPort: 3023
+  type: LoadBalancer
+  loadBalancerIP: 10.0.0.121
+---
+# ============================
+# APISIX route → Teleport over HTTPS
+# ============================
+apiVersion: apisix.apache.org/v2
+kind: ApisixUpstream
+metadata:
+  name: teleport
+  namespace: teleport
+spec:
+  ingressClassName: apisix
+  scheme: https
+  passHost: pass
+  timeout:
+    connect: 10s
+    send: 3600s
+    read: 3600s
+  externalNodes:
+    - name: teleport.teleport.svc.cluster.local
+      type: Domain
+      port: 3080
+      weight: 1
+---
+apiVersion: apisix.apache.org/v2
+kind: ApisixRoute
+metadata:
+  name: teleport-route
+  namespace: teleport
+  annotations:
+    apisix.apache.org/timeout: "950"
+    apisix.apache.org/websocket: "true"
+    teleport.app.suncoast.systems/redeploy: "2026-01-14T23:15:00Z"
+spec:
+  ingressClassName: apisix
+  http:
+    - name: teleport
+      websocket: true
+      match:
+        hosts:
+          - "*.teleport.app.suncoast.systems"
+          - "teleport.app.suncoast.systems"
+        paths: ["/*"]
+      upstreams:
+        - name: teleport
+          weight: 1
+      plugins:
+        - name: client-control
+          enable: true
+          config:
+            ssl_verify: false
+        - name: proxy-rewrite
+          enable: true
+          config:
+            regex_uri: ["^/pgweb(/.*)?$", "/$1"]
+        - name: cors
+          enable: true
+          config:
+            allow_origins_by_regex:
+              - "^https://([a-zA-Z0-9-]+\\.)*teleport\\.app\\.suncoast\\.systems$"
+            allow_origins: "https://teleport.app.suncoast.systems"
+            allow_methods: "GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD"
+            allow_headers: "Authorization,Content-Type,Accept,Origin,X-Requested-With,Cache-Control,Pragma,User-Agent"
+            allow_credential: true
+            max_age: 86400
+        - name: response-rewrite
+          enable: true
+          config:
+            headers:
+              Content-Security-Policy: "base-uri 'self'; connect-src 'self' wss: https:; default-src 'self' https:; font-src 'self' data: https:; frame-ancestors 'self' https://gravitee-management.teleport.app.suncoast.systems https://teleport.app.suncoast.systems; img-src 'self' data: blob: https:; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; worker-src 'self' blob: https:;"
+---
+# ============================
+# Teleport bootstrap resources
+# ============================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: teleport-bootstrap
+  namespace: teleport
+data:
+  initial_config.yaml: |
+    ---
+    kind: cluster_auth_preference
+    version: v2
+    metadata:
+      name: cluster-auth-preference
+    spec:
+      type: github
+      connector_name: new_github_connector
+      second_factor: otp
+
+    ---
+    kind: role
+    version: v7
+    metadata:
+      name: admin
+    spec:
+      options:
+        max_session_ttl: 8h0m0s
+      allow:
+        node_labels: {"*":"*"}
+        db_labels:
+          team: ["admin"]
+        db_users: ["vaultadmin"]
+        db_names: ["*"]
+        app_labels: {"*":"*"}
+        kubernetes_labels: {"*":"*"}
+        windows_desktop_labels: {"*":"*"}
+        logins: ["root","ubuntu"]
+        rules:
+          - resources: ["*"]
+            verbs: ["*"]
+        kubernetes_groups: ["system:masters"]
+
+    ---
+    kind: role
+    version: v7
+    metadata:
+      name: access
+    spec:
+      options:
+        max_session_ttl: 8h0m0s
+      allow:
+        app_labels:
+          team: ["access"]
+
+    ---
+    kind: github
+    version: v3
+    metadata:
+      name: new_github_connector
+    spec:
+      client_id: "<path:secret/data/k8s-teleport-teleport-client-id#value>"
+      client_secret: "<path:secret/data/k8s-teleport-teleport-secret#value>"
+      redirect_url: "https://teleport.app.suncoast.systems/v1/webapi/github/callback"
+      display: "GitHub"
+      teams_to_roles:
+        - organization: "<path:secret/data/k8s-teleport-teleport-github-org#value>"
+          team: "<path:secret/data/k8s-teleport-teleport-github-admin-team#value>"
+          roles: ["admin"]
+        - organization: "<path:secret/data/k8s-teleport-teleport-github-org#value>"
+          team: "<path:secret/data/k8s-teleport-teleport-github-user-team#value>"
+          roles: ["access"]
+  additional.yaml: |
+    ---
+    kind: role
+    version: v7
+    metadata:
+      name: admin
+    spec:
+      options:
+        max_session_ttl: 8h0m0s
+      allow:
+        node_labels: {"*":"*"}
+        db_labels:
+          team: ["admin"]
+        db_users: ["vaultadmin"]
+        db_names: ["*"]
+        app_labels: {"*":"*"}
+        kubernetes_labels: {"*":"*"}
+        windows_desktop_labels: {"*":"*"}
+        logins: ["root","ubuntu"]
+        rules:
+          - resources: ["*"]
+            verbs: ["*"]
+        kubernetes_groups: ["system:masters"]
+    ---
+    kind: role
+    version: v7
+    metadata: { name: vault-app-bot }
+    spec:
+      allow:
+        app_labels:
+          app: vault
+    ---
+    kind: bot
+    version: v1
+    metadata: { name: vault-bot }
+    spec: { roles: [vault-app-bot] }
+    ---
+    kind: token
+    version: v2
+    metadata: { name: vault-bot-gcp }
+    spec:
+      roles: [Bot]
+      bot_name: vault-bot
+      join_method: gcp
+      gcp:
+        allow:
+          - project_ids: ["<path:secret/data/k8s-teleport-vault-project-id#value>"]
+            service_accounts: ["<path:secret/data/k8s-teleport-vault-service-account#value>"]

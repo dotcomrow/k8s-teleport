@@ -1,0 +1,276 @@
+---
+# ============================
+# iDRAC6 HTML5/VNC console (domistyle/idrac6) with Vault-injected creds
+# ============================
+# FIX: make the SA a PreSync hook (and earlier wave) so Argo creates it BEFORE the Sync hook job.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: idrac6-vault-setup
+  namespace: teleport
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-3"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: copy-teleport-vault-root-token
+  namespace: vault
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-4"
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      serviceAccountName: default
+      restartPolicy: Never
+      containers:
+        - name: copy-secret
+          image: alpine/k8s:1.31.4
+          command: ["/bin/sh","-c"]
+          args:
+            - |
+              set -eu
+              apk add --no-cache jq >/dev/null
+              echo "Copying vault-root-token from vault -> teleport"
+              kubectl get secret vault-root-token -n vault -o json \
+                | jq '
+                    .metadata.namespace="teleport"
+                    | del(.metadata.uid,.metadata.resourceVersion,.metadata.creationTimestamp,.metadata.managedFields,.metadata.annotations,.metadata.ownerReferences,.metadata.finalizers,.metadata.generateName,.metadata.selfLink,.metadata.generation,.metadata.labels,.metadata.annotations)
+                    | ( .data.token //= ( .data | to_entries | (.[0].value // "") ) )
+                  ' \
+                | kubectl apply -f -
+              echo "Secret copied successfully."
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: idrac6-vault-bootstrap
+  namespace: teleport
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+    argocd.argoproj.io/sync-wave: "-2"
+  labels:
+    app: idrac6-vault-bootstrap
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: idrac6-vault-bootstrap
+    spec:
+      serviceAccountName: idrac6-vault-setup
+      restartPolicy: Never
+      containers:
+        - name: vault-bootstrap
+          image: hashicorp/vault:1.14.3
+          env:
+            - name: VAULT_ADDR
+              value: "http://vault.vault.svc.cluster.local:8200"
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-root-token
+                  key: token
+            - name: VAULT_AUTH_PATH
+              value: "kubernetes"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+
+              vault status >/dev/null
+
+              cat > /tmp/idrac6-console.hcl <<'POLICY'
+              path "secret/data/idrac6-host" {
+                capabilities = ["read"]
+              }
+              path "secret/data/idrac6-user" {
+                capabilities = ["read"]
+              }
+              path "secret/data/idrac6-password" {
+                capabilities = ["read"]
+              }
+              path "secret/data/idrac-kvm-oauth2-proxy-client-id" {
+                capabilities = ["read"]
+              }
+              path "secret/data/idrac-kvm-oauth2-proxy-client-secret" {
+                capabilities = ["read"]
+              }
+              path "secret/data/idrac-kvm-oauth2-proxy-cookie-secret" {
+                capabilities = ["read"]
+              }
+              POLICY
+
+              echo "Writing policy idrac6-console"
+              vault policy write idrac6-console /tmp/idrac6-console.hcl
+
+              echo "Writing Kubernetes auth role idrac6-console"
+              vault write "auth/${VAULT_AUTH_PATH}/role/idrac6-console" \
+                bound_service_account_names=idrac6-console \
+                bound_service_account_namespaces=teleport \
+                policies=idrac6-console \
+                ttl=24h
+
+              echo "Vault bootstrap complete"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: idrac6-console
+  namespace: teleport
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idrac6-console
+  namespace: teleport
+  labels:
+    app: idrac6-console
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: idrac6-console
+  template:
+    metadata:
+      labels:
+        app: idrac6-console
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "idrac6-console"
+        vault.hashicorp.com/agent-inject-secret-idrac-host.env: "secret/data/idrac6-host"
+        vault.hashicorp.com/agent-inject-template-idrac-host.env: |
+          {{- with secret "secret/data/idrac6-host" -}}
+          IDRAC_HOST={{ .Data.data.value }}
+          {{- end }}
+        vault.hashicorp.com/agent-inject-secret-idrac-user.env: "secret/data/idrac6-user"
+        vault.hashicorp.com/agent-inject-template-idrac-user.env: |
+          {{- with secret "secret/data/idrac6-user" -}}
+          IDRAC_USER={{ .Data.data.value }}
+          {{- end }}
+        vault.hashicorp.com/agent-inject-secret-idrac-password.env: "secret/data/idrac6-password"
+        vault.hashicorp.com/agent-inject-template-idrac-password.env: |
+          {{- with secret "secret/data/idrac6-password" -}}
+          IDRAC_PASSWORD={{ .Data.data.value }}
+          {{- end }}
+    spec:
+      serviceAccountName: idrac6-console
+      containers:
+        - name: idrac6
+          image: domistyle/idrac6:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              for f in /vault/secrets/idrac-host.env /vault/secrets/idrac-user.env /vault/secrets/idrac-password.env; do
+                for i in $(seq 1 30); do
+                  [ -s "$f" ] && break
+                  echo "waiting for vault secret $f"
+                  sleep 1
+                done
+              done
+              set -a
+              . /vault/secrets/idrac-host.env
+              . /vault/secrets/idrac-user.env
+              . /vault/secrets/idrac-password.env
+              exec /init
+          ports:
+            - name: web
+              containerPort: 5800
+            - name: vnc
+              containerPort: 5900
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: idrac6-console
+  namespace: teleport
+spec:
+  selector:
+    app: idrac6-console
+  ports:
+    - name: web
+      port: 80
+      targetPort: web
+    - name: vnc
+      port: 5900
+      targetPort: vnc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idrac6-oauth2-proxy
+  namespace: teleport
+  labels:
+    app: idrac6-oauth2-proxy
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: idrac6-oauth2-proxy
+  template:
+    metadata:
+      labels:
+        app: idrac6-oauth2-proxy
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "idrac6-console"
+        vault.hashicorp.com/agent-inject-secret-oauth2.cfg: "secret/data/idrac-kvm-oauth2-proxy-client-id"
+        vault.hashicorp.com/agent-inject-template-oauth2.cfg: |
+          {{ with secret "secret/data/idrac-kvm-oauth2-proxy-client-id" }}
+          client_id = "{{ .Data.data.value }}"
+          {{ end }}
+          {{ with secret "secret/data/idrac-kvm-oauth2-proxy-client-secret" }}
+          client_secret = "{{ .Data.data.value }}"
+          {{ end }}
+          {{ with secret "secret/data/idrac-kvm-oauth2-proxy-cookie-secret" }}
+          cookie_secret = "{{ .Data.data.value }}"
+          {{ end }}
+    spec:
+      serviceAccountName: idrac6-console
+      containers:
+        - name: oauth2-proxy
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.13.0
+          args:
+            - "--config=/vault/secrets/oauth2.cfg"
+            - "--upstream=http://idrac6-console.teleport.svc.cluster.local:80"
+            - "--http-address=0.0.0.0:4180"
+            - "--redirect-url=https://idrac-vnc.teleport.app.suncoast.systems/oauth2/callback"
+            - "--reverse-proxy=true"
+            - "--cookie-domain=idrac-vnc.teleport.app.suncoast.systems"
+            - "--whitelist-domain=idrac-vnc.teleport.app.suncoast.systems"
+            - "--cookie-secure=true"
+            - "--cookie-samesite=lax"
+            - "--provider=github"
+            - "--email-domain=*"
+            - "--cookie-refresh=24h"
+            - "--cookie-expire=168h"
+            - "--proxy-websockets=true"
+          ports:
+            - name: http
+              containerPort: 4180
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: idrac6-oauth2-proxy
+  namespace: teleport
+spec:
+  selector:
+    app: idrac6-oauth2-proxy
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

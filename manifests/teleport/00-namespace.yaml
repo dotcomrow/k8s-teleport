@@ -1,0 +1,14 @@
+---
+# ============================
+# Namespace (Linkerd off)
+# ============================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: teleport
+  labels:
+    app: teleport
+  annotations:
+    linkerd.io/inject: disabled
+    field.cattle.io/projectId: local:infrastructure
+    argocd.argoproj.io/sync-wave: "-5"
