@@ -616,17 +616,17 @@ data:
     ---
     kind: bot
     version: v1
-    metadata: { name: terraform-vault-bot }
+    metadata: { name: terraform-vault-bot-token-20260215b }
     spec:
       roles: [vault-app-bot]
       max_session_ttl: 604800s
     ---
     kind: token
     version: v2
-    metadata: { name: terraform-vault-bot-token }
+    metadata: { name: terraform-vault-bot-token-20260215b }
     spec:
       roles: [Bot]
-      bot_name: terraform-vault-bot
+      bot_name: terraform-vault-bot-token-20260215b
       join_method: bound_keypair
       bound_keypair:
         onboarding:
