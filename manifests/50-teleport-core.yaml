@@ -617,7 +617,9 @@ data:
     kind: bot
     version: v1
     metadata: { name: terraform-vault-bot }
-    spec: { roles: [vault-app-bot] }
+    spec:
+      roles: [vault-app-bot]
+      max_session_ttl: 168h0m0s
     ---
     kind: token
     version: v2
@@ -630,8 +632,7 @@ data:
         onboarding:
           registration_secret: "<path:secret/data/k8s-teleport-terraform-vault-bot-registration-secret#value>"
         recovery:
-          mode: relaxed
-          limit: 1
+          mode: insecure
     status:
       bound_keypair:
         registration_secret: "<path:secret/data/k8s-teleport-terraform-vault-bot-registration-secret#value>"
