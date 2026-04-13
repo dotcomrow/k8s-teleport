@@ -632,7 +632,7 @@ data:
         onboarding:
           registration_secret: "<path:secret/data/k8s-teleport-terraform-vault-bot-registration-secret#value>"
         recovery:
-          limit: 1
+          limit: 0
           mode: insecure
     # Keep bound_keypair status populated from GitOps so Teleport startup
     # re-apply does not leave the token in a non-joinable empty-status state.
