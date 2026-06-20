@@ -28,6 +28,9 @@ data:
       client_header_buffer_size 16k;
       large_client_header_buffers 8 64k;
       proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=idrac_cache:50m max_size=2g inactive=365d use_temp_path=off;
+      proxy_next_upstream error timeout http_500 http_502 http_503 http_504;
+      proxy_next_upstream_tries 3;
+      proxy_next_upstream_timeout 90s;
 
       map $uri $idrac_cache_bypass {
         default "1";
