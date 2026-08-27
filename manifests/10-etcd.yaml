@@ -178,6 +178,8 @@ kind: StatefulSet
 metadata:
   name: etcd
   namespace: teleport
+  labels:
+    platform.suncoast.systems/vpa-exclude: "true"
 spec:
   serviceName: etcd
   replicas: 1
@@ -236,7 +238,7 @@ spec:
               name: peer
           resources:
             requests:
-              cpu: "500m"
+              cpu: "250m"
               memory: "1Gi"
             limits:
               cpu: "1"

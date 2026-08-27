@@ -161,6 +161,7 @@ metadata:
   namespace: teleport
   labels:
     app: teleport
+    platform.suncoast.systems/vpa-exclude: "true"
   annotations:
     reloader.stakater.com/auto: "true"
 spec:
@@ -225,7 +226,7 @@ spec:
             - { name: web,  containerPort: 3080 }
           resources:
             requests:
-              cpu: "1"
+              cpu: "500m"
               memory: "2Gi"
             limits:
               cpu: "2"
