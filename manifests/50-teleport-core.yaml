@@ -764,3 +764,125 @@ data:
         bound_public_key: ""
         recovery_count: 0
         registration_secret: "<path:secret/data/k8s-teleport-terraform-vault-bot-registration-secret#value>"
+---
+# Keep Teleport managed-update resources explicitly disabled so /webapi/find does
+# not fall back to the legacy cluster_maintenance_config lookup.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: teleport-autoupdate-config
+  namespace: teleport
+data:
+  autoupdate.yaml: |
+    ---
+    kind: autoupdate_config
+    metadata:
+      name: autoupdate-config
+    spec:
+      agents:
+        mode: disabled
+        strategy: halt-on-error
+        schedules:
+          regular:
+            - name: default
+              start_hour: 6
+              days: ["Sun"]
+      tools:
+        mode: disabled
+    ---
+    kind: autoupdate_version
+    metadata:
+      name: autoupdate-version
+    spec:
+      agents:
+        mode: disabled
+        start_version: 18.7.6
+        target_version: 18.7.6
+        schedule: regular
+      tools:
+        target_version: 18.7.6
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: teleport-autoupdate-config-apply
+  namespace: teleport
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: teleport-autoupdate-config-apply
+  namespace: teleport
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    resourceNames: ["teleport-0", "teleport-1", "teleport-2", "teleport-3"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: teleport-autoupdate-config-apply
+  namespace: teleport
+subjects:
+  - kind: ServiceAccount
+    name: teleport-autoupdate-config-apply
+    namespace: teleport
+roleRef:
+  kind: Role
+  name: teleport-autoupdate-config-apply
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: teleport-autoupdate-config-apply
+  namespace: teleport
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      serviceAccountName: teleport-autoupdate-config-apply
+      restartPolicy: Never
+      containers:
+        - name: apply
+          image: alpine/k8s:1.31.4
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              for pod in $(kubectl get pods -n teleport -l app=teleport \
+                -o jsonpath='{range .items[?(@.status.phase=="Running")]}{.metadata.name}{"\n"}{end}' | sort); do
+                case "$pod" in
+                  teleport-0|teleport-1|teleport-2|teleport-3) ;;
+                  *) continue ;;
+                esac
+
+                echo "Applying disabled Teleport autoupdate config via ${pod}"
+                if kubectl exec -i -n teleport "$pod" -c teleport -- \
+                  tctl create -f - < /autoupdate/autoupdate.yaml; then
+                  exit 0
+                fi
+              done
+
+              echo "No running Teleport pod accepted the autoupdate config." >&2
+              exit 1
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+          volumeMounts:
+            - { name: autoupdate-config, mountPath: /autoupdate, readOnly: true }
+      volumes:
+        - name: autoupdate-config
+          configMap:
+            name: teleport-autoupdate-config
