@@ -24,6 +24,11 @@ data:
         tls_cert_file: /etc/etcd-ca/client.crt
         tls_key_file:  /etc/etcd-ca/client.key
 
+    tracing_service:
+      enabled: true
+      exporter_url: grpc://teleport-otel-collector.teleport.svc.cluster.local:4317
+      sampling_rate_per_million: 0
+
     app_service:
       enabled: true
       apps:
@@ -424,6 +429,122 @@ spec:
       targetPort: 3023
   type: LoadBalancer
   loadBalancerIP: 10.0.0.121
+---
+# ============================
+# Teleport-local OTEL relay
+# ============================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: teleport-otel-collector
+  namespace: teleport
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: teleport-otel-collector-config
+  namespace: teleport
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+
+    processors:
+      batch:
+        timeout: 5s
+
+    exporters:
+      otlp/central:
+        endpoint: otel-collector.observability.svc.cluster.local:4317
+        tls:
+          insecure: true
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [otlp/central]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: teleport-otel-collector
+  namespace: teleport
+  labels:
+    app: teleport-otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: teleport-otel-collector
+  template:
+    metadata:
+      labels:
+        app: teleport-otel-collector
+      annotations:
+        linkerd.io/inject: enabled
+        config.linkerd.io/skip-inbound-ports: "4317"
+    spec:
+      serviceAccountName: teleport-otel-collector
+      containers:
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:0.138.0
+          args: ["--config=/etc/otelcol/config.yaml"]
+          ports:
+            - name: otlp-grpc
+              containerPort: 4317
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          volumeMounts:
+            - name: config
+              mountPath: /etc/otelcol
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: teleport-otel-collector-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: teleport-otel-collector
+  namespace: teleport
+spec:
+  selector:
+    app: teleport-otel-collector
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: teleport-otel-collector-ingress
+  namespace: teleport
+spec:
+  podSelector:
+    matchLabels:
+      app: teleport-otel-collector
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: teleport
+      ports:
+        - protocol: TCP
+          port: 4317
 ---
 # ============================
 # APISIX route → Teleport over HTTPS
