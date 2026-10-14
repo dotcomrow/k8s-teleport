@@ -214,17 +214,12 @@ spec:
           projected:
             sources:
               - secret:
-                  # Keep using the legacy client keypair while Teleport is
-                  # first rolled onto a bundle that trusts both etcd CAs.
-                  name: etcd-tls
+                  name: etcd-client-tls
                   items:
-                    - key: client.crt
+                    - key: tls.crt
                       path: client.crt
-                    - key: client.key
+                    - key: tls.key
                       path: client.key
-              - configMap:
-                  name: etcd-ca-transition
-                  items:
                     - key: ca.crt
                       path: ca.crt
         - name: teleport-bootstrap
