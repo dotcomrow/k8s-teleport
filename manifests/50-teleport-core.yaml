@@ -168,12 +168,13 @@ metadata:
     app: teleport
     platform.suncoast.systems/vpa-exclude: "true"
   annotations:
+    argocd.argoproj.io/sync-wave: "2"
     reloader.stakater.com/auto: "true"
 spec:
   replicas: 2
   serviceName: teleport-headless
   updateStrategy:
-    type: OnDelete
+    type: RollingUpdate
   selector:
     matchLabels:
       app: teleport
@@ -210,8 +211,17 @@ spec:
           configMap:
             name: teleport-config
         - name: etcd-ca
-          secret:
-            secretName: etcd-tls
+          projected:
+            sources:
+              - secret:
+                  name: etcd-client-tls
+                  items:
+                    - key: tls.crt
+                      path: client.crt
+                    - key: tls.key
+                      path: client.key
+                    - key: ca.crt
+                      path: ca.crt
         - name: teleport-bootstrap
           configMap:
             name: teleport-bootstrap

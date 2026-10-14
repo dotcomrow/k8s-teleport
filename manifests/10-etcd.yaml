@@ -1,152 +1,104 @@
 ---
-apiVersion: v1
-kind: ServiceAccount
+apiVersion: cert-manager.io/v1
+kind: Issuer
 metadata:
-  name: etcd-tls-bootstrap
+  name: etcd-selfsigned
   namespace: teleport
   annotations:
-    argocd.argoproj.io/hook: PreSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-    argocd.argoproj.io/sync-wave: "-2"
+    argocd.argoproj.io/sync-wave: "-3"
+spec:
+  selfSigned: {}
 ---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+apiVersion: cert-manager.io/v1
+kind: Certificate
 metadata:
-  name: secret-writer
+  name: etcd-ca
   namespace: teleport
   annotations:
-    argocd.argoproj.io/hook: PreSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
     argocd.argoproj.io/sync-wave: "-2"
-rules:
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["get","create","update","patch","delete"]
+spec:
+  secretName: etcd-ca
+  isCA: true
+  commonName: etcd-ca
+  duration: 87600h
+  renewBeforePercentage: 20
+  privateKey:
+    algorithm: RSA
+    size: 4096
+    # Keep the CA key stable across routine certificate renewal so existing
+    # etcd leaf certificates remain verifiable. CA key rotation requires a
+    # separately planned overlapping-trust migration.
+    rotationPolicy: Never
+  issuerRef:
+    name: etcd-selfsigned
+    kind: Issuer
 ---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+apiVersion: cert-manager.io/v1
+kind: Issuer
 metadata:
-  name: secret-writer-binding
-  namespace: teleport
-  annotations:
-    argocd.argoproj.io/hook: PreSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-    argocd.argoproj.io/sync-wave: "-2"
-subjects:
-  - kind: ServiceAccount
-    name: etcd-tls-bootstrap
-    namespace: teleport
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: secret-writer
----
-# ============================
-# PreSync: generate etcd TLS (CA + server cert)
-# ============================
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: etcd-tls-bootstrap
+  name: etcd-ca
   namespace: teleport
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
-    argocd.argoproj.io/hook: PreSync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
-  template:
-    spec:
-      serviceAccountName: etcd-tls-bootstrap
-      restartPolicy: OnFailure
-      volumes:
-        - name: work
-          emptyDir: {}
-      containers:
-        - name: bootstrap
-          image: alpine:3.19
-          volumeMounts:
-            - name: work
-              mountPath: /work
-          command: ["/bin/sh","-c"]
-          args:
-            - |
-              set -eu
-              apk add --no-cache openssl kubectl
-
-              if kubectl -n teleport get secret etcd-tls >/dev/null 2>&1; then
-                echo "etcd-tls already exists; skipping bootstrap"
-                exit 0
-              fi
-
-              # ----- CA extensions (real CA) -----
-              cat >/work/ca.cnf <<'CNF'
-              [v3_ca]
-              basicConstraints = critical, CA:true
-              keyUsage = critical, keyCertSign, cRLSign
-              subjectKeyIdentifier = hash
-              authorityKeyIdentifier = keyid:always,issuer
-              CNF
-
-              # ----- Server/Peer cert needs BOTH serverAuth + clientAuth -----
-              cat >/work/server.cnf <<'CNF'
-              [v3_server_peer]
-              basicConstraints = CA:FALSE
-              keyUsage = critical, digitalSignature, keyEncipherment
-              extendedKeyUsage = serverAuth, clientAuth
-              subjectAltName = @alt_names
-              [alt_names]
-              DNS.1 = etcd-0.etcd.teleport.svc.cluster.local
-              DNS.2 = etcd.teleport.svc
-              DNS.3 = etcd.teleport.svc.cluster.local
-              DNS.4 = localhost
-              IP.1  = 127.0.0.1
-              CNF
-
-              # ----- Client cert (Teleport) needs clientAuth -----
-              cat >/work/client.cnf <<'CNF'
-              [v3_client]
-              basicConstraints = CA:FALSE
-              keyUsage = critical, digitalSignature, keyEncipherment
-              extendedKeyUsage = clientAuth
-              CNF
-
-              # Generate CA
-              openssl genrsa -out /work/ca.key 4096
-              openssl req -new -x509 -key /work/ca.key -sha256 -days 3650 \
-                -subj "/CN=etcd-ca" \
-                -extensions v3_ca -config /work/ca.cnf \
-                -out /work/ca.crt
-
-              # Generate server/peer key + CSR
-              openssl genrsa -out /work/server.key 2048
-              openssl req -new -key /work/server.key \
-                -subj "/CN=etcd-0.etcd.teleport.svc.cluster.local" \
-                -out /work/server.csr
-              # Sign server with BOTH EKUs
-              openssl x509 -req -in /work/server.csr -CA /work/ca.crt -CAkey /work/ca.key \
-                -CAcreateserial -out /work/server.crt -days 3650 -sha256 \
-                -extensions v3_server_peer -extfile /work/server.cnf
-
-              # Generate Teleport client key + CSR
-              openssl genrsa -out /work/client.key 2048
-              openssl req -new -key /work/client.key \
-                -subj "/CN=teleport" \
-                -out /work/client.csr
-              # Sign client with clientAuth EKU
-              openssl x509 -req -in /work/client.csr -CA /work/ca.crt -CAkey /work/ca.key \
-                -CAcreateserial -out /work/client.crt -days 3650 -sha256 \
-                -extensions v3_client -extfile /work/client.cnf
-
-              chmod 0644 /work/ca.crt /work/server.crt /work/client.crt
-              chmod 0640 /work/server.key /work/client.key
-
-              kubectl -n teleport create secret generic etcd-tls \
-                --from-file=ca.crt=/work/ca.crt \
-                --from-file=server.crt=/work/server.crt \
-                --from-file=server.key=/work/server.key \
-                --from-file=client.crt=/work/client.crt \
-                --from-file=client.key=/work/client.key \
-                --dry-run=client -o yaml | kubectl apply -f -
+  ca:
+    secretName: etcd-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: etcd-server-tls
+  namespace: teleport
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  secretName: etcd-server-tls
+  duration: 2160h
+  renewBeforePercentage: 50
+  commonName: etcd-0.etcd.teleport.svc.cluster.local
+  dnsNames:
+    - etcd-0.etcd.teleport.svc.cluster.local
+    - etcd.teleport.svc
+    - etcd.teleport.svc.cluster.local
+    - localhost
+  ipAddresses:
+    - 127.0.0.1
+  usages:
+    - server auth
+    - client auth
+    - digital signature
+    - key encipherment
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    rotationPolicy: Always
+  issuerRef:
+    name: etcd-ca
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: etcd-client-tls
+  namespace: teleport
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  secretName: etcd-client-tls
+  duration: 2160h
+  renewBeforePercentage: 50
+  commonName: teleport
+  usages:
+    - client auth
+    - digital signature
+    - key encipherment
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    rotationPolicy: Always
+  issuerRef:
+    name: etcd-ca
+    kind: Issuer
 ---
 # ============================
 # etcd headless Service
@@ -180,10 +132,15 @@ metadata:
   namespace: teleport
   labels:
     platform.suncoast.systems/vpa-exclude: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   serviceName: etcd
   replicas: 1
   updateStrategy:
+    # The single etcd member is restarted manually during the initial
+    # certificate migration. Routine TLS renewals are reloaded by etcd on new
+    # connections and must not create an automatic Teleport outage.
     type: OnDelete
   selector:
     matchLabels:
@@ -195,8 +152,17 @@ spec:
     spec:
       volumes:
         - name: etcd-tls
-          secret:
-            secretName: etcd-tls
+          projected:
+            sources:
+              - secret:
+                  name: etcd-server-tls
+                  items:
+                    - key: tls.crt
+                      path: server.crt
+                    - key: tls.key
+                      path: server.key
+                    - key: ca.crt
+                      path: ca.crt
       containers:
         - name: etcd
           image: quay.io/coreos/etcd:v3.5.14
