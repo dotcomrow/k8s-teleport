@@ -161,6 +161,13 @@ spec:
                       path: server.crt
                     - key: tls.key
                       path: server.key
+              # During the one-time CA migration, etcd must trust both the
+              # legacy Teleport client certificate and the new cert-manager
+              # client certificate. The transition ConfigMap is removed once
+              # Teleport has rolled onto the new client certificate.
+              - configMap:
+                  name: etcd-ca-transition
+                  items:
                     - key: ca.crt
                       path: ca.crt
       containers:
