@@ -21,12 +21,26 @@ data:
     http {
       log_format main '$remote_addr - $remote_user [$time_local] "$request" '
                       '$status $body_bytes_sent "$http_referer" '
-                      '"$http_user_agent" "$http_x_forwarded_for"';
+                      '"$http_user_agent" "$http_x_forwarded_for" '
+                      'cache=$upstream_cache_status rt=$request_time '
+                      'uct=$upstream_connect_time uht=$upstream_header_time '
+                      'urt=$upstream_response_time';
       access_log /dev/stdout main;
       error_log  /dev/stderr notice;
       # Allow large OAuth2 cookies/headers from shared domains.
       client_header_buffer_size 16k;
       large_client_header_buffers 8 64k;
+      # The iDRAC6 controller is extremely slow and handles parallel requests poorly.
+      # Cache every cacheable GET/HEAD response. Static objects use a cache key that
+      # intentionally ignores cache-busting query strings used by the legacy UI.
+      proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=idrac_cache:64m
+                       max_size=2g inactive=3650d use_temp_path=off;
+      # Never share pre-login responses that establish an iDRAC session. Once a
+      # browser has cookies, the full Cookie header is part of the page cache key.
+      map $http_cookie $idrac_cache_no_session {
+        ""      1;
+        default 0;
+      }
       proxy_next_upstream error timeout http_500 http_502 http_503 http_504;
       proxy_next_upstream_tries 3;
       proxy_next_upstream_timeout 90s;
@@ -41,6 +55,61 @@ data:
 
         # Talk to legacy iDRAC over TLS1.0 and ignore its cert.
         resolver 1.1.1.1 valid=300s ipv6=off;
+        proxy_pass_request_headers on;
+        proxy_ssl_server_name off;
+        proxy_ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+        proxy_ssl_ciphers ALL:@SECLEVEL=0;
+        proxy_ssl_verify off;
+        proxy_ssl_session_reuse on;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host 10.0.2.10;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Accept-Encoding "";
+
+        # Rewrite absolute redirects, cookies, and response-body URLs to stay on Teleport.
+        proxy_redirect https://10.0.2.10/ https://idrac.teleport.app.suncoast.systems/;
+        proxy_redirect https://10.0.2.10:443/ https://idrac.teleport.app.suncoast.systems/;
+        proxy_cookie_domain 10.0.2.10 idrac.teleport.app.suncoast.systems;
+        sub_filter_once off;
+        sub_filter_types text/css application/javascript text/javascript application/x-javascript application/json application/xml text/xml application/x-java-jnlp-file;
+        sub_filter "https://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
+        sub_filter "http://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
+        sub_filter "https://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
+        sub_filter "http://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
+        sub_filter "ip=10.0.2.10" "ip=idrac.teleport.app.suncoast.systems";
+
+        # Whole-site authenticated GET/HEAD cache. Cookie-bearing pages, HTML frames,
+        # XML navigation, and generated JavaScript are isolated per session. Static
+        # assets below are shared across sessions. Pre-login requests bypass this cache
+        # so a session-establishing Set-Cookie is never shared.
+        proxy_cache idrac_cache;
+        proxy_cache_key "idrac-v2|page|$request_uri|$http_cookie";
+        proxy_cache_methods GET HEAD;
+        proxy_cache_valid 200 206 301 302 3650d;
+        proxy_cache_valid 404 30s;
+        proxy_cache_valid any 15s;
+        proxy_cache_min_uses 1;
+        proxy_cache_lock on;
+        proxy_cache_lock_timeout 30s;
+        proxy_cache_lock_age 30s;
+        proxy_cache_background_update on;
+        proxy_cache_use_stale error timeout invalid_header updating http_500 http_502 http_503 http_504;
+        proxy_cache_bypass $idrac_cache_no_session;
+        proxy_no_cache $idrac_cache_no_session;
+        # iDRAC marks nearly every response no-cache and may refresh its cookie on
+        # authenticated GETs. Those responses remain isolated by the cookie cache key.
+        proxy_ignore_headers Cache-Control Expires X-Accel-Expires Set-Cookie;
+        add_header X-IDRAC-Cache $upstream_cache_status always;
+
+        proxy_buffering on;
+        proxy_buffers 32 64k;
+        proxy_busy_buffers_size 256k;
+        proxy_max_temp_file_size 0;
+        proxy_connect_timeout 15s;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
 
         # Force simple filename for JNLP downloads (handles extra path suffix like viewer.jnlp(...)).
         location ~* \.jnlp.* {
@@ -51,82 +120,48 @@ data:
           proxy_hide_header Cache-Control;
           proxy_hide_header Expires;
           add_header Cache-Control "no-store" always;
+          proxy_cache off;
           proxy_pass https://idrac_upstream;
-          proxy_ssl_server_name off;
-          proxy_ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
-          proxy_ssl_ciphers ALL:@SECLEVEL=0;
-          proxy_ssl_verify off;
-          proxy_ssl_session_reuse on;
-          proxy_http_version 1.1;
-          proxy_set_header Connection "";
-          proxy_set_header Host 10.0.2.10;
-          proxy_set_header X-Forwarded-Proto https;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-          proxy_redirect https://10.0.2.10/ https://idrac.teleport.app.suncoast.systems/;
-          proxy_redirect https://10.0.2.10:443/ https://idrac.teleport.app.suncoast.systems/;
-          proxy_cookie_domain 10.0.2.10 idrac.teleport.app.suncoast.systems;
-
-          sub_filter_once off;
           sub_filter_types application/x-java-jnlp-file application/xml text/xml text/plain;
-          sub_filter "https://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
-          sub_filter "http://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
-          sub_filter "https://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
-          sub_filter "http://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
-          # Keep the JNLP KVM endpoint on the public hostname.
-          sub_filter "ip=10.0.2.10" "ip=idrac.teleport.app.suncoast.systems";
-          proxy_set_header Accept-Encoding "";
         }
 
-        # iDRAC asset URLs are stable, non-hashed paths. Avoid bridge/browser caching so
-        # a bad cache mount or stale asset cannot make the web GUI load without styling.
-        location ~* \.(?:css|js|png|jpe?g|gif|ico|svg|ttf|woff2?|map|jar)$ {
-          add_header Cache-Control "no-store" always;
-          try_files $uri @idrac_backend;
-        }
-
-        # Serve locally re-signed jars first; fall back to backend if missing.
-        location / {
-          try_files $uri @idrac_backend;
-        }
-
-        location @idrac_backend {
+        # iDRAC's XMLHttpRequest data loader uses POST requests under /data. Keep the
+        # namespace explicitly uncacheable even if a firmware endpoint later uses GET.
+        location = /data {
+          proxy_cache off;
+          add_header X-IDRAC-Cache BYPASS always;
           proxy_pass https://idrac_upstream;
-          proxy_ssl_server_name off;
-          proxy_ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
-          proxy_ssl_ciphers ALL:@SECLEVEL=0;
-          proxy_ssl_verify off;
-          proxy_ssl_session_reuse on;
-          proxy_http_version 1.1;
-          proxy_set_header Connection "";
-          proxy_set_header Host 10.0.2.10;
-          proxy_set_header X-Forwarded-Proto https;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
 
-          # Rewrite absolute redirects/cookie domains to stay on Teleport.
-          proxy_redirect https://10.0.2.10/ https://idrac.teleport.app.suncoast.systems/;
-          proxy_redirect https://10.0.2.10:443/ https://idrac.teleport.app.suncoast.systems/;
-          proxy_cookie_domain 10.0.2.10 idrac.teleport.app.suncoast.systems;
+        location ^~ /data/ {
+          proxy_cache off;
+          add_header X-IDRAC-Cache BYPASS always;
+          proxy_pass https://idrac_upstream;
+        }
 
-          # Rewrite absolute URLs in HTML/CSS/JS responses.
-          sub_filter_once off;
-          sub_filter_types text/css application/javascript text/javascript application/x-javascript application/json application/xml text/xml application/x-java-jnlp-file;
-          sub_filter "https://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
-          sub_filter "http://10.0.2.10:443" "https://idrac.teleport.app.suncoast.systems";
-          sub_filter "https://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
-          sub_filter "http://10.0.2.10" "https://idrac.teleport.app.suncoast.systems";
-          # Keep the JNLP KVM endpoint on the public hostname.
-          sub_filter "ip=10.0.2.10" "ip=idrac.teleport.app.suncoast.systems";
-          proxy_set_header Accept-Encoding "";
+        # Static resources are shared across sessions and cached very aggressively.
+        # The v2 cache-key prefix prevents reuse of files left by the retired cache.
+        location ~* \.(?:css|js|png|jpe?g|gif|ico|svg|ttf|woff2?|map|jar)$ {
+          proxy_cache_key "idrac-v2|static|$uri";
+          proxy_cache_valid 200 206 301 302 3650d;
+          proxy_cache_valid 404 1d;
+          proxy_cache_bypass 0;
+          proxy_no_cache 0;
+          proxy_ignore_headers Cache-Control Expires X-Accel-Expires Set-Cookie;
+          proxy_hide_header Cache-Control;
+          proxy_hide_header Expires;
+          proxy_hide_header Set-Cookie;
+          add_header X-IDRAC-Cache $upstream_cache_status always;
+          add_header Cache-Control "public, max-age=315360000, immutable" always;
+          add_header Expires "Thu, 31 Dec 2037 23:55:55 GMT" always;
+          proxy_pass https://idrac_upstream;
+        }
 
-          proxy_buffering on;
-          proxy_buffers 32 64k;
-          proxy_busy_buffers_size 256k;
-          proxy_max_temp_file_size 0;
-
-          proxy_connect_timeout 30s;
-          proxy_read_timeout 300s;
-          proxy_send_timeout 300s;
+        # Permanently cache all other GET/HEAD requests, including HTML/XML/JS-generated
+        # resources. Non-GET/HEAD methods are never cached; authenticated responses are
+        # keyed by the full Cookie header.
+        location / {
+          proxy_pass https://idrac_upstream;
         }
       }
     }
@@ -200,6 +235,8 @@ spec:
             - name: config
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
         - name: kvm-proxy
           image: ghcr.io/dotcomrow/kvm-proxy:7a65641c8fe1f1d4c1b29ee2bf79453edf099b63
           command:
@@ -263,6 +300,9 @@ spec:
         - name: config
           configMap:
             name: idrac-bridge-haproxy
+        - name: nginx-cache
+          persistentVolumeClaim:
+            claimName: idrac-cache-nfs
 ---
 apiVersion: v1
 kind: Service
